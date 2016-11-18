@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">MediaExtractorDemo</string>
+
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="title_activity_main">MainActivity</string>
+
+    <string name="action_edit_video">编辑</string>
+    <string name="action_delete_video">删除</string>
+
+    <string name="title_activity_video_edit">视频编辑</string>
+
+    <string name="video_edit_name">视频名称：</string>
+    <string name="video_edit_duration">视频时长：</string>
+    <string name="video_edit_size">文件大小：</string>
+    <string name="video_edit_frame_rate">Frame Rate：</string>
+    <string name="video_edit_samplerate">Sampling Rate：</string>
+    <string name="video_edit_track_number">Track数目：</string>
+
+    <string name="video_edit_header_cut">头部剪切时长 ms</string>
+    <string name="video_edit_tail_cut">尾部剪切时长 ms</string>
+
+
+
+</resources>

@@ -1,0 +1,11 @@
+<resources>
+    <!-- Default screen margins, per the Android Design guidelines. -->
+    <dimen name="activity_horizontal_margin">0dp</dimen>
+    <dimen name="activity_vertical_margin">0dp</dimen>
+    <dimen name="fab_margin">16dp</dimen>
+    <dimen name="general_big_text_size">30sp</dimen>
+    <dimen name="general_middle_text_size">24sp</dimen>
+    <dimen name="general_small_text_size">18sp</dimen>
+    <dimen name="video_list_divider_height">10dp</dimen>
+    <dimen name="video_list_item_height">180dp</dimen>
+</resources>
