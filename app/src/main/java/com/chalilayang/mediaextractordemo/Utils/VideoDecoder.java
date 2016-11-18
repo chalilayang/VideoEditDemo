@@ -4,9 +4,28 @@ import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
+import android.text.TextUtils;
 import android.util.Log;
+import android.util.TimeUtils;
 
+import com.coremedia.iso.boxes.Container;
+import com.coremedia.iso.boxes.TimeToSampleBox;
+import com.googlecode.mp4parser.authoring.Movie;
+import com.googlecode.mp4parser.authoring.Track;
+import com.googlecode.mp4parser.authoring.builder.DefaultMp4Builder;
+import com.googlecode.mp4parser.authoring.container.mp4.MovieCreator;
+import com.googlecode.mp4parser.authoring.tracks.AppendTrack;
+import com.googlecode.mp4parser.authoring.tracks.CroppedTrack;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Created by chalilayang on 2016/11/15.
@@ -107,11 +126,9 @@ public class VideoDecoder {
                 Log.e(TAG, " read error " + e.getMessage());
             }
         }
-        //分配缓冲
         ByteBuffer inputBuffer = ByteBuffer.allocate(videoMaxInputSize);
-        //根据官方文档的解释MediaMuxer的start一定要在addTrack之后
         mediaMuxer.start();
-        //视频处理部分
+
         mediaExtractor.selectTrack(sourceVTrack);
         MediaCodec.BufferInfo videoInfo = new MediaCodec.BufferInfo();
 
@@ -156,9 +173,27 @@ public class VideoDecoder {
                 mediaExtractor.unselectTrack(sourceVTrack);
                 break;
             }
-            mediaExtractor.advance();
-            videoInfo = getBufferInfo(videoInfo, 0, sampleSize, presentationTimeUs, sampleFlag);
+            if (videoInfo != null) {
+                switch (sampleFlag) {
+                    case MediaCodec.BUFFER_FLAG_KEY_FRAME:
+                        videoInfo.set(0, sampleSize, presentationTimeUs, MediaCodec.BUFFER_FLAG_KEY_FRAME);
+                        break;
+                    case MediaCodec.BUFFER_FLAG_CODEC_CONFIG:
+                        videoInfo.set(0, sampleSize, presentationTimeUs, MediaCodec
+                                .BUFFER_FLAG_CODEC_CONFIG);
+                        break;
+                    case MediaCodec.BUFFER_FLAG_END_OF_STREAM:
+                        videoInfo.set(0, sampleSize, presentationTimeUs, MediaCodec
+                                .BUFFER_FLAG_END_OF_STREAM);
+                        break;
+                    default:
+                        break;
+                }
+            }
+//            videoInfo = getBufferInfo(videoInfo, 0, sampleSize, presentationTimeUs, sampleFlag);
             mediaMuxer.writeSampleData(videoTrackIndex, inputBuffer, videoInfo);
+
+            mediaExtractor.advance();
             presentationTimeUs += videoSampleTime;
         }
 
@@ -171,8 +206,9 @@ public class VideoDecoder {
         {
             mediaExtractor.readSampleData(inputBuffer, 0);
             //skip first sample
-            if (mediaExtractor.getSampleTime() == 0)
+            if (mediaExtractor.getSampleTime() == 0) {
                 mediaExtractor.advance();
+            }
             mediaExtractor.readSampleData(inputBuffer, 0);
             long firstAudioPTS = mediaExtractor.getSampleTime();
             mediaExtractor.advance();
@@ -209,4 +245,6 @@ public class VideoDecoder {
         mediaExtractor = null;
         return true;
     }
+
+
 }

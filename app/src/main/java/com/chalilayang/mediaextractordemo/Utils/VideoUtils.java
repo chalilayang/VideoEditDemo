@@ -3,11 +3,16 @@ package com.chalilayang.mediaextractordemo.Utils;
 import android.graphics.Bitmap;
 import android.media.ThumbnailUtils;
 
+import java.io.IOException;
+
 /**
  * Created by chalilayang on 2016/11/16.
  */
 
 public class VideoUtils {
+
+    public static final int METHOD_BY_MEDIA = 12;
+    public static final int METHOD_BY_MP4PARSER = 13;
     /**
      * @param videoPath 视频路径
      * @param width     图片宽度
@@ -22,4 +27,22 @@ public class VideoUtils {
                 .OPTIONS_RECYCLE_INPUT);
         return bitmap;
     }
+
+    public static void cropVideo(String path, long start, long end, int type) {
+        switch (type) {
+            case METHOD_BY_MEDIA:
+                VideoDecoder decoder = new VideoDecoder();
+                decoder.decodeVideo(path, start, end - start);
+                break;
+            case METHOD_BY_MP4PARSER:
+                try {
+                    Mp4Parser.startTrim(path, start, end);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                break;
+        }
+    }
+
+
 }

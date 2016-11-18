@@ -19,9 +19,11 @@ import android.widget.TextView;
 import com.chalilayang.mediaextractordemo.Utils.SDCardUtil;
 import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
 import com.chalilayang.mediaextractordemo.Utils.VideoDecoder;
+import com.chalilayang.mediaextractordemo.Utils.VideoUtils;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
 
 import java.io.File;
+import java.io.IOException;
 
 public class VideoEditActivity extends AppCompatActivity {
 
@@ -116,9 +118,8 @@ public class VideoEditActivity extends AppCompatActivity {
             long head = params[0];
             long tail = params[1];
             long duration = params[2];
-            VideoDecoder decoder = new VideoDecoder();
             String path = videoToEdit.filePath;
-            decoder.decodeVideo(path, head, duration - head - tail);
+            VideoUtils.cropVideo(path, head, duration - tail, VideoUtils.METHOD_BY_MP4PARSER);
             return true;
         }
 
