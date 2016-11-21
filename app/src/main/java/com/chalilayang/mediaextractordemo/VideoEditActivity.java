@@ -21,7 +21,9 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.chalilayang.mediaextractordemo.Utils.FileUtils;
 import com.chalilayang.mediaextractordemo.Utils.SDCardUtil;
+import com.chalilayang.mediaextractordemo.Utils.StorageEngine;
 import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
 import com.chalilayang.mediaextractordemo.Utils.VideoDecoder;
 import com.chalilayang.mediaextractordemo.Utils.VideoUtils;
@@ -124,7 +126,12 @@ public class VideoEditActivity extends AppCompatActivity {
             long tail = params[1];
             long duration = params[2];
             String path = videoToEdit.filePath;
-            String dest = path.substring(0, path.lastIndexOf(".")) + "_crop.mp4";
+            String dest = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
+                    + File.separatorChar
+                    + FileUtils.parseFileName(path);
+            if (dest.endsWith(".mp4")) {
+                dest = dest.substring(0, dest.lastIndexOf(".")) + "_output.mp4";
+            }
             VideoUtils.cropVideo(path, dest, head, duration - tail, VideoUtils.METHOD_BY_MP4PARSER);
 //            VideoUtils.cloneVideo(path);
             return true;
