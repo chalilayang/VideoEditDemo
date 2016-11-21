@@ -45,6 +45,8 @@ public class VideosAdapter extends RecyclerView.Adapter implements VideoThumbnai
     public void removeVideo(int index) {
         this.videoList.remove(index);
         this.notifyItemRemoved(index);
+        int count = Math.min(this.getItemCount() - index, 10);
+        this.notifyItemRangeChanged(index, count);
     }
 
     public void setOnItemClickListener(VideosAdapter.onItemClickListener onItemClickListener) {

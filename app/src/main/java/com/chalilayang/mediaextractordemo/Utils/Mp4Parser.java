@@ -26,11 +26,12 @@ import java.util.List;
 
 public class Mp4Parser {
 
-    public static double[] startTrim(String srcpath, long startMs, long endMs) throws IOException {
+    public static double[] startTrim(String srcpath, String despath, long startMs, long endMs)
+            throws IOException {
 
         startMs = startMs / 1000;
         endMs = endMs / 1000;
-        if (TextUtils.isEmpty(srcpath)) {
+        if (TextUtils.isEmpty(srcpath) || TextUtils.isEmpty(despath)) {
             return null;
         }
         File src = new File(srcpath);
@@ -52,9 +53,8 @@ public class Mp4Parser {
                     throw new RuntimeException("The startTime has already been corrected by " +
                             "another track with SyncSample. Not Supported.");
                 }
-                //true,false表示短截取；false,true表示长截取
-                startTime = correctTimeToSyncSample(track, startTime, true);
-                endTime = correctTimeToSyncSample(track, endTime, false);
+                startTime = correctTimeToSyncSample(track, startTime);
+                endTime = correctTimeToSyncSample(track, endTime);
                 timeCorrected = true;
             }
         }
@@ -83,11 +83,11 @@ public class Mp4Parser {
         }
         Container container = new DefaultMp4Builder().build(movie);
 
-        File dst = new File(srcpath.substring(0, srcpath.lastIndexOf(".")) + "_mp4parser_output" +
-                ".mp4");
-        if (!dst.exists()) {
-            dst.createNewFile();
+        File dst = new File(despath);
+        if (dst.exists()) {
+            dst.delete();
         }
+        dst.createNewFile();
 
         FileOutputStream fos = new FileOutputStream(dst);
         FileChannel fc = fos.getChannel();
@@ -101,17 +101,17 @@ public class Mp4Parser {
 
     }
 
-    private static double correctTimeToSyncSample(Track track, double cutHere, boolean next) {
+    private static double correctTimeToSyncSample(Track track, double cutHere) {
         double[] timeOfSyncSamples = new double[track.getSyncSamples().length];
         long currentSample = 0;
         double currentTime = 0;
         for (int i = 0, count = track.getDecodingTimeEntries().size(); i < count; i++) {
             TimeToSampleBox.Entry entry = track.getDecodingTimeEntries().get(i);
             for (int j = 0; j < entry.getCount(); j++) {
-                if (Arrays.binarySearch(track.getSyncSamples(), currentSample + 1) >= 0) {
+                int index = Arrays.binarySearch(track.getSyncSamples(), currentSample + 1);
+                if (index >= 0) {
                     // samples always start with 1 but we start with zero therefore +1
-                    timeOfSyncSamples[Arrays.binarySearch(track.getSyncSamples(), currentSample +
-                            1)] = currentTime;
+                    timeOfSyncSamples[index] = currentTime;
                 }
                 currentTime += (double) entry.getDelta() / (double) track.getTrackMetaData()
                         .getTimescale();
@@ -121,11 +121,9 @@ public class Mp4Parser {
         double previous = 0;
         for (double timeOfSyncSample : timeOfSyncSamples) {
             if (timeOfSyncSample > cutHere) {
-                if (next) {
-                    return timeOfSyncSample;
-                } else {
-                    return previous;
-                }
+                double tmp1 = Math.abs(timeOfSyncSample - cutHere);
+                double tmp2 = Math.abs(previous - cutHere);
+                return tmp1 <= tmp2 ? timeOfSyncSample : previous;
             }
             previous = timeOfSyncSample;
         }

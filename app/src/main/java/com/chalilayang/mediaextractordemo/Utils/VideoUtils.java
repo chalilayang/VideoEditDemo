@@ -2,6 +2,7 @@ package com.chalilayang.mediaextractordemo.Utils;
 
 import android.graphics.Bitmap;
 import android.media.ThumbnailUtils;
+import android.text.TextUtils;
 
 import java.io.IOException;
 
@@ -28,7 +29,7 @@ public class VideoUtils {
         return bitmap;
     }
 
-    public static void cropVideo(String path, long start, long end, int type) {
+    public static void cropVideo(String path, String despath, long start, long end, int type) {
         switch (type) {
             case METHOD_BY_MEDIA:
                 VideoDecoder decoder = new VideoDecoder();
@@ -36,7 +37,7 @@ public class VideoUtils {
                 break;
             case METHOD_BY_MP4PARSER:
                 try {
-                    Mp4Parser.startTrim(path, start, end);
+                    Mp4Parser.startTrim(path, despath, start, end);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

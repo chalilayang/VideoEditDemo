@@ -124,7 +124,8 @@ public class VideoEditActivity extends AppCompatActivity {
             long tail = params[1];
             long duration = params[2];
             String path = videoToEdit.filePath;
-            VideoUtils.cropVideo(path, head, duration - tail, VideoUtils.METHOD_BY_MP4PARSER);
+            String dest = path.substring(0, path.lastIndexOf(".")) + "_crop.mp4";
+            VideoUtils.cropVideo(path, dest, head, duration - tail, VideoUtils.METHOD_BY_MP4PARSER);
 //            VideoUtils.cloneVideo(path);
             return true;
         }
