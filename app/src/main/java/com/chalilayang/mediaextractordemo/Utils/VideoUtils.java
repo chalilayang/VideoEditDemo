@@ -32,7 +32,7 @@ public class VideoUtils {
         switch (type) {
             case METHOD_BY_MEDIA:
                 VideoDecoder decoder = new VideoDecoder();
-                decoder.decodeVideo(path, start, end - start);
+                decoder.decodeVideo2(path, start, end - start);
                 break;
             case METHOD_BY_MP4PARSER:
                 try {
@@ -44,5 +44,16 @@ public class VideoUtils {
         }
     }
 
+    public static boolean cloneVideo(String path) {
+        String dst = path.substring(0, path.lastIndexOf(".")) + "_clone.mp4";
+        MediaMuxerUtils mediaMuxerUtils = new MediaMuxerUtils();
+        try {
+            mediaMuxerUtils.cloneMediaUsingMuxer(path, dst, 2, 90);
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 
 }

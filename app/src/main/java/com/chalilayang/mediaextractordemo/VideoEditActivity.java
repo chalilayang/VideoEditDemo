@@ -1,12 +1,17 @@
 package com.chalilayang.mediaextractordemo;
 
+import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -120,6 +125,7 @@ public class VideoEditActivity extends AppCompatActivity {
             long duration = params[2];
             String path = videoToEdit.filePath;
             VideoUtils.cropVideo(path, head, duration - tail, VideoUtils.METHOD_BY_MP4PARSER);
+//            VideoUtils.cloneVideo(path);
             return true;
         }
 
@@ -155,7 +161,31 @@ public class VideoEditActivity extends AppCompatActivity {
         }
     }
 
+    public static String getVideoPath(Context context, Uri uri) {
+        Uri videopathURI = uri;
+        if (uri.getScheme().toString().compareTo("content") == 0 ) {
+            Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+            if (cursor.moveToFirst()) {
+                int column_index = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
+                videopathURI = Uri.parse(cursor.getString(column_index));
+                return videopathURI.getPath();
+            }
+        }
+        else if (uri.getScheme().compareTo("file") == 0 ) {
+            return videopathURI.getPath();
+        }
+
+        return videopathURI.toString();
+    }
+
     private void initData() {
+        Intent intent = getIntent();
+        if (intent.getAction() != null &&
+                Intent.ACTION_VIEW.equals(intent.getAction())) {
+            String path = getVideoPath(getApplicationContext(), intent.getData());
+            String name = path.substring(path.lastIndexOf(File.separator));
+            videoToEdit = new VideoData(path, name);
+        }
         Bundle b = getIntent().getExtras();
         if (b != null) {
             String name = b.getString(MainActivity.KEY_FILE_NAME);
