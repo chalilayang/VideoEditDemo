@@ -29,6 +29,15 @@ public class VideoUtils {
         return bitmap;
     }
 
+    public static void removeAudioTrack(String url, String des) {
+        VideoDecoder decoder = new VideoDecoder();
+        try {
+            decoder.process(url, des);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void cropVideo(String path, String despath, long start, long end, int type) {
         switch (type) {
             case METHOD_BY_MEDIA:

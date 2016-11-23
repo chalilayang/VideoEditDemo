@@ -134,6 +134,9 @@ public class VideoEditActivity extends AppCompatActivity {
             }
             VideoUtils.cropVideo(path, dest, head, duration - tail, VideoUtils.METHOD_BY_MP4PARSER);
 //            VideoUtils.cloneVideo(path);
+//            VideoUtils.removeAudioTrack(path,
+//                    StorageEngine.getDownloadFile(getApplicationContext(), "ddd")
+//                            + "_withoutAudio.mp4");
             return true;
         }
 
@@ -145,6 +148,22 @@ public class VideoEditActivity extends AppCompatActivity {
             super.onPostExecute(aBoolean);
         }
     };
+
+    public static String getVideoPath(Context context, Uri uri) {
+        Uri videopathURI = uri;
+        if (uri.getScheme().toString().compareTo("content") == 0) {
+            Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+            if (cursor.moveToFirst()) {
+                int column_index = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
+                videopathURI = Uri.parse(cursor.getString(column_index));
+                return videopathURI.getPath();
+            }
+        } else if (uri.getScheme().compareTo("file") == 0) {
+            return videopathURI.getPath();
+        }
+
+        return videopathURI.toString();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -167,23 +186,6 @@ public class VideoEditActivity extends AppCompatActivity {
         if (!videoHasParsed) {
             parseTask.execute(videoToEdit);
         }
-    }
-
-    public static String getVideoPath(Context context, Uri uri) {
-        Uri videopathURI = uri;
-        if (uri.getScheme().toString().compareTo("content") == 0 ) {
-            Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
-            if (cursor.moveToFirst()) {
-                int column_index = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
-                videopathURI = Uri.parse(cursor.getString(column_index));
-                return videopathURI.getPath();
-            }
-        }
-        else if (uri.getScheme().compareTo("file") == 0 ) {
-            return videopathURI.getPath();
-        }
-
-        return videopathURI.toString();
     }
 
     private void initData() {

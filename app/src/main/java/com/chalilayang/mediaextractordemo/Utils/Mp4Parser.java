@@ -10,6 +10,7 @@ import com.googlecode.mp4parser.authoring.builder.DefaultMp4Builder;
 import com.googlecode.mp4parser.authoring.container.mp4.MovieCreator;
 import com.googlecode.mp4parser.authoring.tracks.AppendTrack;
 import com.googlecode.mp4parser.authoring.tracks.CroppedTrack;
+import com.googlecode.mp4parser.authoring.tracks.TextTrackImpl;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -81,6 +82,18 @@ public class Mp4Parser {
             }
             movie.addTrack(new CroppedTrack(track, startSample, endSample));
         }
+
+        // SubTitleを追加
+        TextTrackImpl subTitleEng = new TextTrackImpl();
+        subTitleEng.getTrackMetaData().setLanguage("eng");
+
+        subTitleEng.getSubs().add(new TextTrackImpl.Line(0, 1000, "Five"));
+        subTitleEng.getSubs().add(new TextTrackImpl.Line(1000, 2000, "Four"));
+        subTitleEng.getSubs().add(new TextTrackImpl.Line(2000, 3000, "Three"));
+        subTitleEng.getSubs().add(new TextTrackImpl.Line(3000, 4000, "Two"));
+        subTitleEng.getSubs().add(new TextTrackImpl.Line(4000, 5000, "one"));
+        movie.addTrack(subTitleEng);
+
         Container container = new DefaultMp4Builder().build(movie);
 
         File dst = new File(despath);

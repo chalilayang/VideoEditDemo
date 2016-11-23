@@ -1,5 +1,6 @@
 package com.chalilayang.mediaextractordemo.Utils;
 
+import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
@@ -66,18 +67,15 @@ public class VideoDecoder {
         int sourceVTrack = 0;
         int sourceATrack = 0;
         long videoDuration, audioDuration;
-//创建分离器
+
         mediaExtractor = new MediaExtractor();
         try {
-//设置文件路径
             mediaExtractor.setDataSource(url);
-//创建合成器
             mediaMuxer = new MediaMuxer(url.substring(0, url.lastIndexOf(".")) + "_output.mp4",
                     MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         } catch (Exception e) {
             Log.e(TAG, "error path" + e.getMessage());
         }
-//获取每个轨道的信息
         for (int i = 0; i < mediaExtractor.getTrackCount(); i++) {
             try {
                 mediaFormat = mediaExtractor.getTrackFormat(i);
@@ -88,7 +86,6 @@ public class VideoDecoder {
                     int height = mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
                     videoMaxInputSize = mediaFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
                     videoDuration = mediaFormat.getLong(MediaFormat.KEY_DURATION);
-//检测剪辑点和剪辑时长是否正确
                     if (clipPoint >= videoDuration) {
                         Log.e(TAG, "clip point is error!");
                         return false;
@@ -101,7 +98,6 @@ public class VideoDecoder {
                             + ";maxInputSize is " + videoMaxInputSize
                             + ";duration is " + videoDuration
                     );
-//向合成器添加视频轨
                     videoTrackIndex = mediaMuxer.addTrack(mediaFormat);
                 } else if (mime.startsWith("audio/")) {
                     sourceATrack = i;
@@ -114,7 +110,6 @@ public class VideoDecoder {
                             + ";audioMaxInputSize is " + audioMaxInputSize
                             + ";audioDuration is " + audioDuration
                     );
-//添加音轨
                     audioTrackIndex = mediaMuxer.addTrack(mediaFormat);
                 }
                 Log.d(TAG, "file mime is " + mime);
@@ -122,21 +117,17 @@ public class VideoDecoder {
                 Log.e(TAG, " read error " + e.getMessage());
             }
         }
-//分配缓冲
         ByteBuffer inputBuffer = ByteBuffer.allocate(videoMaxInputSize);
-//根据官方文档的解释MediaMuxer的start一定要在addTrack之后
         mediaMuxer.start();
-//视频处理部分
         mediaExtractor.selectTrack(sourceVTrack);
         MediaCodec.BufferInfo videoInfo = new MediaCodec.BufferInfo();
         videoInfo.presentationTimeUs = 0;
         long videoSampleTime;
-//获取源视频相邻帧之间的时间间隔。(1)
         {
             mediaExtractor.readSampleData(inputBuffer, 0);
-//skip first I frame
-            if (mediaExtractor.getSampleFlags() == MediaExtractor.SAMPLE_FLAG_SYNC)
+            if (mediaExtractor.getSampleFlags() == MediaExtractor.SAMPLE_FLAG_SYNC) {
                 mediaExtractor.advance();
+            }
             mediaExtractor.readSampleData(inputBuffer, 0);
             long firstVideoPTS = mediaExtractor.getSampleTime();
             mediaExtractor.advance();
@@ -145,25 +136,20 @@ public class VideoDecoder {
             videoSampleTime = Math.abs(SecondVideoPTS - firstVideoPTS);
             Log.d(TAG, "videoSampleTime is " + videoSampleTime);
         }
-//选择起点
         mediaExtractor.seekTo(clipPoint, MediaExtractor.SEEK_TO_NEXT_SYNC);
         while (true) {
             int sampleSize = mediaExtractor.readSampleData(inputBuffer, 0);
             if (sampleSize < 0) {
-//这里一定要释放选择的轨道，不然另一个轨道就无法选中了
                 mediaExtractor.unselectTrack(sourceVTrack);
                 break;
             }
             int trackIndex = mediaExtractor.getSampleTrackIndex();
-//获取时间戳
             long presentationTimeUs = mediaExtractor.getSampleTime();
-//获取帧类型，只能识别是否为I帧
             int sampleFlag = mediaExtractor.getSampleFlags();
             Log.i(TAG, "trackIndex is " + trackIndex
                     + ";presentationTimeUs is " + presentationTimeUs
                     + ";sampleFlag is " + sampleFlag
                     + ";sampleSize is " + sampleSize);
-//剪辑时间到了就跳出
             if ((clipDuration != 0) && (presentationTimeUs > (clipPoint + clipDuration))) {
                 mediaExtractor.unselectTrack(sourceVTrack);
                 break;
@@ -171,7 +157,6 @@ public class VideoDecoder {
             mediaExtractor.advance();
             videoInfo.offset = 0;
             videoInfo.size = sampleSize;
-//            videoInfo.flags = sampleFlag;
             if (videoInfo != null) {
                 boolean is_end = (sampleFlag & MediaCodec.BUFFER_FLAG_END_OF_STREAM) ==
                         MediaCodec.BUFFER_FLAG_END_OF_STREAM;
@@ -186,15 +171,12 @@ public class VideoDecoder {
             mediaMuxer.writeSampleData(videoTrackIndex, inputBuffer, videoInfo);
             videoInfo.presentationTimeUs += videoSampleTime;//presentationTimeUs;
         }
-//音频部分
         mediaExtractor.selectTrack(sourceATrack);
         MediaCodec.BufferInfo audioInfo = new MediaCodec.BufferInfo();
         audioInfo.presentationTimeUs = 0;
         long audioSampleTime;
-//获取音频帧时长
         {
             mediaExtractor.readSampleData(inputBuffer, 0);
-//skip first sample
             if (mediaExtractor.getSampleTime() == 0)
                 mediaExtractor.advance();
             mediaExtractor.readSampleData(inputBuffer, 0);
@@ -226,7 +208,6 @@ public class VideoDecoder {
             mediaMuxer.writeSampleData(audioTrackIndex, inputBuffer, audioInfo);
             audioInfo.presentationTimeUs += audioSampleTime;//presentationTimeUs;
         }
-//全部写完后释放MediaMuxer和MediaExtractor
         mediaMuxer.stop();
         mediaMuxer.release();
         mediaExtractor.release();
@@ -309,6 +290,68 @@ public class VideoDecoder {
         mediaMuxer.release();
         mediaExtractor.release();
         mediaExtractor = null;
+        return true;
+    }
+
+    public boolean process(String url, String destPath) throws IOException {
+        mediaExtractor = new MediaExtractor();
+        mediaExtractor.setDataSource(url);
+        int mVideoTrackIndex = -1;
+        for (int i = 0; i < mediaExtractor.getTrackCount(); i++) {
+            MediaFormat format = mediaExtractor.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                mediaExtractor.selectTrack(i);
+                mediaMuxer = new MediaMuxer(destPath,
+                        MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                mVideoTrackIndex = mediaMuxer.addTrack(format);
+                break;
+            }
+        }
+        mediaMuxer.start();
+        if (mediaMuxer == null) {
+            return false;
+        }
+        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+        info.presentationTimeUs = 0;
+        ByteBuffer buffer = ByteBuffer.allocate(500 * 1024);
+        long sampInterval = 0;
+        long lastSample = 0;
+        int count = 0;
+        mediaExtractor.seekTo(33000, MediaExtractor.SEEK_TO_NEXT_SYNC);
+        while (true) {
+            int sampleSize = mediaExtractor.readSampleData(buffer, 0);
+            if (sampleSize < 0) {
+                break;
+            }
+            info.offset = 0;
+            info.size = sampleSize;
+            int sampleflag = mediaExtractor.getSampleFlags();
+            if (sampleflag == MediaCodec.BUFFER_FLAG_KEY_FRAME) {
+                info.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+            } else {
+                info.flags = 0;
+            }
+
+            if (mediaExtractor.getSampleTime() > 0) {
+                lastSample = mediaExtractor.getSampleTime();
+                info.presentationTimeUs = lastSample;
+                if (sampInterval == 0) {
+                    sampInterval = lastSample;
+                } else {
+                    sampInterval = lastSample - sampInterval;
+                }
+                Log.i(TAG, info.flags + "  sampleTimeUs " +
+                        info.presentationTimeUs + " size:" + info.size + "  count: " + count++);
+                mediaMuxer.writeSampleData(mVideoTrackIndex, buffer, info);
+            }
+            if (!mediaExtractor.advance()) {
+                break;
+            }
+        }
+        mediaExtractor.release();
+        mediaMuxer.stop();
+        mediaMuxer.release();
         return true;
     }
 }
