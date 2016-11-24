@@ -2,9 +2,11 @@ package com.chalilayang.mediaextractordemo.Utils;
 
 import android.graphics.Bitmap;
 import android.media.ThumbnailUtils;
-import android.text.TextUtils;
+
+import com.chalilayang.mediaextractordemo.entities.SrtEntity;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Created by chalilayang on 2016/11/16.
@@ -64,6 +66,18 @@ public class VideoUtils {
             e.printStackTrace();
         }
         return false;
+    }
+    /**
+     * add text track
+     * 
+     * @author chalilayang
+     * @time 2016/11/24 12:45
+     * 
+     */
+    public static boolean addTextTrack(String path, List<SrtEntity> entities) {
+        String dst = path.substring(0, path.lastIndexOf(".")) + "_srt.mp4";
+        Mp4Parser.addTextTrack(path, dst, entities);
+        return true;
     }
 
 }

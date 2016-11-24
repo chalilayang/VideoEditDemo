@@ -27,16 +27,20 @@ import com.chalilayang.mediaextractordemo.Utils.StorageEngine;
 import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
 import com.chalilayang.mediaextractordemo.Utils.VideoDecoder;
 import com.chalilayang.mediaextractordemo.Utils.VideoUtils;
+import com.chalilayang.mediaextractordemo.entities.SrtEntity;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VideoEditActivity extends AppCompatActivity {
 
     private static final String TAG = "VideoEditActivity";
     private static final int MSG_PARSED = 26;
     private static final int MSG_CUT_FINISHED = 30;
+    private static final int MSG_ADD_TEXT_TRACK_FINISHED = 31;
     private VideoData videoToEdit;
 
     private TextView videoNameTv;
@@ -49,6 +53,7 @@ public class VideoEditActivity extends AppCompatActivity {
     private EditText tailCutEdtv;
 
     private FloatingActionButton cutBtn;
+    private FloatingActionButton addBtn;
 
     private MediaExtractor mediaExtractor = new MediaExtractor();
     private MediaFormat mediaFormat;
@@ -91,6 +96,11 @@ public class VideoEditActivity extends AppCompatActivity {
                                     .setAction("Action", null).show();
                         }
                     }
+                    break;
+                case MSG_ADD_TEXT_TRACK_FINISHED:
+                    Snackbar.make(cutBtn, "字幕添加完成", Snackbar.LENGTH_LONG)
+                            .setAction("Action", null).show();
+                    break;
             }
         }
     };
@@ -146,6 +156,36 @@ public class VideoEditActivity extends AppCompatActivity {
             msg.obj = aBoolean ? Boolean.TRUE : Boolean.FALSE;
             handler.sendMessage(msg);
             super.onPostExecute(aBoolean);
+        }
+    };
+
+    AsyncTask<Void, Void, Void> addTextgTrackTask = new AsyncTask<Void, Void, Void>() {
+        @Override
+        protected Void doInBackground(Void... params) {
+            String path = videoToEdit.filePath;
+            String dest = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
+                    + File.separatorChar
+                    + FileUtils.parseFileName(path);
+            List<SrtEntity> list = new ArrayList<SrtEntity>();
+            long start = 0;
+            long sec = videoDuration / 1000000l;
+            for (int index = 0; index < 14; index++) {
+                start += 1000;
+                if ((index & 1) == 0) {
+                    list.add(new SrtEntity(start, start + 1000, start + "----"));
+                }
+            }
+//            list.add(new SrtEntity(start, 1000, "0-----1"));
+//            list.add(new SrtEntity(2000, 10000, "2------10"));
+            list.add(new SrtEntity(17000, 20000, "17-----20"));
+            VideoUtils.addTextTrack(path, list);
+            return null;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            handler.obtainMessage(MSG_ADD_TEXT_TRACK_FINISHED).sendToTarget();
         }
     };
 
@@ -230,6 +270,13 @@ public class VideoEditActivity extends AppCompatActivity {
                 doCut();
             }
         });
+        addBtn = (FloatingActionButton) findViewById(R.id.add_text_track);
+        addBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                doAdd();
+            }
+        });
     }
 
     private void parseVideo(VideoData videoData) {
@@ -279,7 +326,10 @@ public class VideoEditActivity extends AppCompatActivity {
             Snackbar.make(cutBtn, "输入错误", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show();
         }
+    }
 
+    private void doAdd() {
+        addTextgTrackTask.execute();
     }
 
     private boolean checkInput(long head, long tail, long duration) {

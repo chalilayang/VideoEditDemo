@@ -2,6 +2,7 @@ package com.chalilayang.mediaextractordemo.Utils;
 
 import android.text.TextUtils;
 
+import com.chalilayang.mediaextractordemo.entities.SrtEntity;
 import com.coremedia.iso.boxes.Container;
 import com.coremedia.iso.boxes.TimeToSampleBox;
 import com.googlecode.mp4parser.authoring.Movie;
@@ -83,17 +84,6 @@ public class Mp4Parser {
             movie.addTrack(new CroppedTrack(track, startSample, endSample));
         }
 
-        // SubTitleを追加
-        TextTrackImpl subTitleEng = new TextTrackImpl();
-        subTitleEng.getTrackMetaData().setLanguage("eng");
-
-        subTitleEng.getSubs().add(new TextTrackImpl.Line(0, 1000, "Five"));
-        subTitleEng.getSubs().add(new TextTrackImpl.Line(1000, 2000, "Four"));
-        subTitleEng.getSubs().add(new TextTrackImpl.Line(2000, 3000, "Three"));
-        subTitleEng.getSubs().add(new TextTrackImpl.Line(3000, 4000, "Two"));
-        subTitleEng.getSubs().add(new TextTrackImpl.Line(4000, 5000, "one"));
-        movie.addTrack(subTitleEng);
-
         Container container = new DefaultMp4Builder().build(movie);
 
         File dst = new File(despath);
@@ -111,7 +101,37 @@ public class Mp4Parser {
         doubleArray[0] = startTime;
         doubleArray[1] = endTime;
         return doubleArray;
+    }
 
+    public static void addTextTrack(String srcpath, String destpath, List<SrtEntity> entities) {
+        if (TextUtils.isEmpty(srcpath) || TextUtils.isEmpty(destpath)) {
+            return;
+        }
+        File src = new File(srcpath);
+        if (!src.exists() || !src.isFile()) {
+            return;
+        }
+        try {
+            Movie countVideo = MovieCreator.build(srcpath);
+
+            TextTrackImpl subTitleEng = new TextTrackImpl();
+            subTitleEng.getTrackMetaData().setLanguage("eng");
+            List<TextTrackImpl.Line> ls = subTitleEng.getSubs();
+            for (int index = 0, count = entities.size(); index < count; index++) {
+                SrtEntity tmp = entities.get(index);
+                ls.add(new TextTrackImpl.Line(tmp.start, tmp.end, tmp.text));
+            }
+            countVideo.addTrack(subTitleEng);
+
+            Container container = new DefaultMp4Builder().build(countVideo);
+            FileOutputStream fos = new FileOutputStream(destpath);
+            FileChannel channel = fos.getChannel();
+            container.writeContainer(channel);
+            fos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return;
     }
 
     private static double correctTimeToSyncSample(Track track, double cutHere) {
