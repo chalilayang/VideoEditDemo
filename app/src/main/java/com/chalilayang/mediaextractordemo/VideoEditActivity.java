@@ -62,6 +62,7 @@ public class VideoEditActivity extends AppCompatActivity {
 
     private long videoDuration; // in microseconds
     private long audioDuration; // in microseconds
+    private int videoHint;
     private int video_width;
     private int video_height;
     private int sampleRate;
@@ -169,15 +170,13 @@ public class VideoEditActivity extends AppCompatActivity {
             List<SrtEntity> list = new ArrayList<SrtEntity>();
             long start = 0;
             long sec = videoDuration / 1000000l;
-            for (int index = 0; index < 14; index++) {
+            for (int index = 0; index < sec; index++) {
                 start += 1000;
-                if ((index & 1) == 0) {
-                    list.add(new SrtEntity(start, start + 1000, start + "----"));
-                }
+                list.add(new SrtEntity(start, start + 1000, "第" + start/1000 + "秒 字幕：----------"));
             }
 //            list.add(new SrtEntity(start, 1000, "0-----1"));
 //            list.add(new SrtEntity(2000, 10000, "2------10"));
-            list.add(new SrtEntity(17000, 20000, "17-----20"));
+//            list.add(new SrtEntity(17000, 20000, "17-----20"));
             VideoUtils.addTextTrack(path, list);
             return null;
         }
@@ -297,6 +296,7 @@ public class VideoEditActivity extends AppCompatActivity {
                     video_width = mediaFormat.getInteger(MediaFormat.KEY_WIDTH);
                     video_height = mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
                     videoDuration = mediaFormat.getLong(MediaFormat.KEY_DURATION);
+                    videoHint = mediaFormat.getInteger(MediaFormat.KEY_ROTATION);
                     frameRate = mediaFormat.getInteger(MediaFormat.KEY_FRAME_RATE);
                 } else if (mime.startsWith("audio/")) {
                     this.sampleRate = mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE);

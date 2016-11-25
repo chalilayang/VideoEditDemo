@@ -167,6 +167,7 @@ public class MainActivity extends AppCompatActivity
     public List<VideoData> getData() {
         List<VideoData> list = new ArrayList<>();
         File dir = StorageEngine.getDownloadFolder(getApplicationContext());
+//        dir = new File(StorageEngine.getDownloadRootPath(getApplicationContext()));
         if (dir.exists()) {
             File[] files = dir.listFiles(new FilenameFilter() {
                 @Override

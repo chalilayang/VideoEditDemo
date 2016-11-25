@@ -12,7 +12,7 @@ import java.util.Date;
 
 public class FileUtils {
     public static String generateNameByDate() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HH:mm:ss");
         return sdf.format(new Date(System.currentTimeMillis()));
     }
 

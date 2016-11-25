@@ -2,7 +2,7 @@
              xmlns:tools="http://schemas.android.com/tools"
              android:layout_width="match_parent"
              android:layout_height="match_parent"
-             android:background="#0099cc"
+             android:background="@color/black_overlay"
              tools:context="com.chalilayang.mediaextractordemo.FullscreenActivity">
 
     <!-- The primary full-screen view. This can be replaced with whatever view
@@ -12,6 +12,7 @@
         android:id="@+id/surface_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_gravity="center"
         android:gravity="center"
         android:keepScreenOn="true"/>
 
@@ -21,7 +22,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fitsSystemWindows="true">
-
         <LinearLayout
             android:id="@+id/fullscreen_content_controls"
             style="?metaButtonBarStyle"
@@ -60,5 +60,12 @@
                 android:text="00:00"/>
         </LinearLayout>
     </FrameLayout>
-
+    <TextView
+        android:id="@+id/timed_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/colorAccent"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="@dimen/fab_margin"
+        android:textSize="@dimen/general_middle_text_size"/>
 </FrameLayout>
