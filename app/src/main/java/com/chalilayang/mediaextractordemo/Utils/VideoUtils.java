@@ -2,10 +2,13 @@ package com.chalilayang.mediaextractordemo.Utils;
 
 import android.graphics.Bitmap;
 import android.media.ThumbnailUtils;
+import android.support.annotation.IntDef;
 
 import com.chalilayang.mediaextractordemo.entities.SrtEntity;
 
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 
 /**
@@ -16,6 +19,7 @@ public class VideoUtils {
 
     public static final int METHOD_BY_MEDIA = 12;
     public static final int METHOD_BY_MP4PARSER = 13;
+
     /**
      * @param videoPath 视频路径
      * @param width     图片宽度
@@ -33,18 +37,15 @@ public class VideoUtils {
 
     public static void removeAudioTrack(String url, String des) {
         VideoDecoder decoder = new VideoDecoder();
-        try {
-            decoder.process(url, des);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        decoder.removeAudio(url, des);
     }
 
-    public static void cropVideo(String path, String despath, long start, long end, int type) {
+    public static void cropVideo(String path, String despath, long start, long end,
+                                 @CropVideo_Method_Type int type) {
         switch (type) {
             case METHOD_BY_MEDIA:
                 VideoDecoder decoder = new VideoDecoder();
-                decoder.decodeVideo3(path, despath, start, end - start);
+                decoder.cropVideo(path, start, end - start);
                 break;
             case METHOD_BY_MP4PARSER:
                 try {
@@ -67,17 +68,26 @@ public class VideoUtils {
         }
         return false;
     }
+
     /**
      * add text track
-     * 
+     *
      * @author chalilayang
      * @time 2016/11/24 12:45
-     * 
      */
     public static boolean addTextTrack(String path, List<SrtEntity> entities) {
         String dst = path.substring(0, path.lastIndexOf(".")) + "_srt.mp4";
         Mp4Parser.addTextTrack(path, dst, entities);
         return true;
+    }
+
+    @IntDef(
+            value = {
+                    METHOD_BY_MEDIA,
+                    METHOD_BY_MP4PARSER,
+            })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface CropVideo_Method_Type {
     }
 
 }
