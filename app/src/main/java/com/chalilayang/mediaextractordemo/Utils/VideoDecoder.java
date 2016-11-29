@@ -48,12 +48,13 @@ public class VideoDecoder {
 
     /**
      * remove the audioTrack of mediafile
+     *
      * @param srcFilePath
      * @param dstFilePath
      * @return
      */
     public boolean removeAudio(String srcFilePath,
-                                String dstFilePath) {
+                               String dstFilePath) {
         if (TextUtils.isEmpty(srcFilePath)) {
             return false;
         }
@@ -136,7 +137,8 @@ public class VideoDecoder {
         return true;
     }
 
-    public boolean cropVideo(String url, long clipPoint, long clipDuration) {
+    public boolean cropVideo(String url, long clipStartPoint, long clipEndPoint) {
+        final int MAX_INPUT_SIZE = 1024 * 1204;
         int videoTrackIndex = -1;
         int audioTrackIndex = -1;
         int videoMaxInputSize = 0;
@@ -153,7 +155,8 @@ public class VideoDecoder {
         } catch (Exception e) {
             Log.e(TAG, "error path" + e.getMessage());
         }
-        for (int i = 0; i < mediaExtractor.getTrackCount(); i++) {
+        final int trackCount = mediaExtractor.getTrackCount();
+        for (int i = 0; i < trackCount; i++) {
             try {
                 mediaFormat = mediaExtractor.getTrackFormat(i);
                 mime = mediaFormat.getString(MediaFormat.KEY_MIME);
@@ -163,12 +166,12 @@ public class VideoDecoder {
                     int height = mediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
                     videoMaxInputSize = mediaFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
                     videoDuration = mediaFormat.getLong(MediaFormat.KEY_DURATION);
-                    if (clipPoint >= videoDuration) {
-                        Log.e(TAG, "clip point is error!");
+                    if (clipStartPoint >= videoDuration) {
+                        Log.e(TAG, "clipStartPoint is error!");
                         return false;
                     }
-                    if ((clipDuration != 0) && ((clipDuration + clipPoint) >= videoDuration)) {
-                        Log.e(TAG, "clip duration is error!");
+                    if ((clipEndPoint <= 0) || (clipEndPoint > videoDuration)) {
+                        Log.e(TAG, "clipEndPoint is error!");
                         return false;
                     }
                     Log.i(TAG, "width and height is " + width + " " + height
@@ -194,27 +197,16 @@ public class VideoDecoder {
                 Log.e(TAG, " read error " + e.getMessage());
             }
         }
-        ByteBuffer inputBuffer = ByteBuffer.allocate(videoMaxInputSize);
+        ByteBuffer inputBuffer = ByteBuffer.allocate(videoMaxInputSize > 0 ? videoMaxInputSize :
+                MAX_INPUT_SIZE);
         mediaMuxer.start();
         mediaExtractor.selectTrack(sourceVTrack);
         MediaCodec.BufferInfo videoInfo = new MediaCodec.BufferInfo();
         videoInfo.presentationTimeUs = 0;
-        long videoSampleTime;
-        {
-            mediaExtractor.readSampleData(inputBuffer, 0);
-            if (mediaExtractor.getSampleFlags() == MediaExtractor.SAMPLE_FLAG_SYNC) {
-                mediaExtractor.advance();
-            }
-            mediaExtractor.readSampleData(inputBuffer, 0);
-            long firstVideoPTS = mediaExtractor.getSampleTime();
-            mediaExtractor.advance();
-            mediaExtractor.readSampleData(inputBuffer, 0);
-            long SecondVideoPTS = mediaExtractor.getSampleTime();
-            videoSampleTime = Math.abs(SecondVideoPTS - firstVideoPTS);
-            Log.d(TAG, "videoSampleTime is " + videoSampleTime);
-        }
-        mediaExtractor.seekTo(clipPoint, MediaExtractor.SEEK_TO_NEXT_SYNC);
-        while (true) {
+        long basePresentation = -1;
+        mediaExtractor.seekTo(clipStartPoint, MediaExtractor.SEEK_TO_NEXT_SYNC);
+        boolean hasMoreData = true;
+        while (hasMoreData) {
             int sampleSize = mediaExtractor.readSampleData(inputBuffer, 0);
             if (sampleSize < 0) {
                 mediaExtractor.unselectTrack(sourceVTrack);
@@ -222,50 +214,51 @@ public class VideoDecoder {
             }
             int trackIndex = mediaExtractor.getSampleTrackIndex();
             long presentationTimeUs = mediaExtractor.getSampleTime();
+            if (basePresentation < 0) {
+                basePresentation = presentationTimeUs;
+            }
             int sampleFlag = mediaExtractor.getSampleFlags();
             Log.i(TAG, "trackIndex is " + trackIndex
                     + ";presentationTimeUs is " + presentationTimeUs
                     + ";sampleFlag is " + sampleFlag
                     + ";sampleSize is " + sampleSize);
-            if ((clipDuration != 0) && (presentationTimeUs > (clipPoint + clipDuration))) {
+            if ((clipEndPoint != 0) && (presentationTimeUs > clipEndPoint)) {
+                Log.i(TAG, "cropVideo: clipEndPoint " + clipEndPoint);
                 mediaExtractor.unselectTrack(sourceVTrack);
                 break;
             }
-            mediaExtractor.advance();
             videoInfo.offset = 0;
             videoInfo.size = sampleSize;
-            if (videoInfo != null) {
-                boolean is_end = (sampleFlag & MediaCodec.BUFFER_FLAG_END_OF_STREAM) ==
-                        MediaCodec.BUFFER_FLAG_END_OF_STREAM;
-                if (is_end) {
-                    videoInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME | MediaCodec
-                            .BUFFER_FLAG_END_OF_STREAM;
-                } else {
-                    videoInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+            if ((sampleFlag & MediaExtractor.SAMPLE_FLAG_SYNC)
+                    == MediaExtractor.SAMPLE_FLAG_SYNC) {
+                videoInfo.flags = MediaExtractor.SAMPLE_FLAG_SYNC;
+                if ((sampleFlag & MediaExtractor.SAMPLE_FLAG_ENCRYPTED)
+                        == MediaExtractor.SAMPLE_FLAG_ENCRYPTED) {
+                    videoInfo.flags = MediaExtractor.SAMPLE_FLAG_SYNC | MediaExtractor
+                            .SAMPLE_FLAG_ENCRYPTED;
+                }
+            } else {
+                videoInfo.flags = 0;
+                if ((sampleFlag & MediaExtractor.SAMPLE_FLAG_ENCRYPTED)
+                        == MediaExtractor.SAMPLE_FLAG_ENCRYPTED) {
+                    videoInfo.flags = MediaExtractor
+                            .SAMPLE_FLAG_ENCRYPTED;
                 }
             }
-            Log.i(TAG, "修改后的sampleFlag is " + sampleFlag);
+
+            Log.i(TAG, "修改后的sampleFlag is " + videoInfo.flags);
             mediaMuxer.writeSampleData(videoTrackIndex, inputBuffer, videoInfo);
-            videoInfo.presentationTimeUs += videoSampleTime;//presentationTimeUs;
+            videoInfo.presentationTimeUs = presentationTimeUs - basePresentation;
+            Log.i(TAG, "修改后的presentationTimeUs is " + videoInfo.presentationTimeUs);
+            hasMoreData = mediaExtractor.advance();
         }
         mediaExtractor.selectTrack(sourceATrack);
         MediaCodec.BufferInfo audioInfo = new MediaCodec.BufferInfo();
         audioInfo.presentationTimeUs = 0;
-        long audioSampleTime;
-        {
-            mediaExtractor.readSampleData(inputBuffer, 0);
-            if (mediaExtractor.getSampleTime() == 0)
-                mediaExtractor.advance();
-            mediaExtractor.readSampleData(inputBuffer, 0);
-            long firstAudioPTS = mediaExtractor.getSampleTime();
-            mediaExtractor.advance();
-            mediaExtractor.readSampleData(inputBuffer, 0);
-            long SecondAudioPTS = mediaExtractor.getSampleTime();
-            audioSampleTime = Math.abs(SecondAudioPTS - firstAudioPTS);
-            Log.d(TAG, "AudioSampleTime is " + audioSampleTime);
-        }
-        mediaExtractor.seekTo(clipPoint, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
-        while (true) {
+        basePresentation = -1;
+        mediaExtractor.seekTo(clipStartPoint, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+        hasMoreData = true;
+        while (hasMoreData) {
             int sampleSize = mediaExtractor.readSampleData(inputBuffer, 0);
             if (sampleSize < 0) {
                 mediaExtractor.unselectTrack(sourceATrack);
@@ -273,17 +266,20 @@ public class VideoDecoder {
             }
             int trackIndex = mediaExtractor.getSampleTrackIndex();
             long presentationTimeUs = mediaExtractor.getSampleTime();
+            if (basePresentation < 0) {
+                basePresentation = presentationTimeUs;
+            }
             Log.d(TAG, "trackIndex is " + trackIndex
                     + ";presentationTimeUs is " + presentationTimeUs);
-            if ((clipDuration != 0) && (presentationTimeUs > (clipPoint + clipDuration))) {
+            if ((clipEndPoint != 0) && (presentationTimeUs > clipEndPoint)) {
                 mediaExtractor.unselectTrack(sourceATrack);
                 break;
             }
-            mediaExtractor.advance();
             audioInfo.offset = 0;
             audioInfo.size = sampleSize;
             mediaMuxer.writeSampleData(audioTrackIndex, inputBuffer, audioInfo);
-            audioInfo.presentationTimeUs += audioSampleTime;//presentationTimeUs;
+            audioInfo.presentationTimeUs = presentationTimeUs - basePresentation;
+            hasMoreData = mediaExtractor.advance();
         }
         mediaMuxer.stop();
         mediaMuxer.release();

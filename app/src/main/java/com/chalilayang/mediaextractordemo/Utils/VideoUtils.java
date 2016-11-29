@@ -45,7 +45,7 @@ public class VideoUtils {
         switch (type) {
             case METHOD_BY_MEDIA:
                 VideoDecoder decoder = new VideoDecoder();
-                decoder.cropVideo(path, start, end - start);
+                decoder.cropVideo(path, start, end);
                 break;
             case METHOD_BY_MP4PARSER:
                 try {
