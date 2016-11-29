@@ -61,6 +61,7 @@ public class VideoDecoder {
         }
         return videoInfo;
     }
+
     public boolean decodeVideo3(String srcFilePath,
                                 String dstFilePath,
                                 long clipPoint,
@@ -94,11 +95,21 @@ public class VideoDecoder {
         int trackCount = extractor.getTrackCount();
         HashMap<Integer, Integer> indexMap = new HashMap<Integer, Integer>(trackCount);
 
+        int audioTrackIndex = -1;
+        int videoTrackIndex = -1;
         for (int i = 0; i < trackCount; i++) {
             extractor.selectTrack(i);
             MediaFormat format = extractor.getTrackFormat(i);
-            int dstIndex = muxer.addTrack(format);
-            indexMap.put(i, dstIndex);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                videoTrackIndex = i;
+                int dstIndex = muxer.addTrack(format);
+                indexMap.put(i, dstIndex);
+            } else {
+                audioTrackIndex = i;
+//                int dstIndex = muxer.addTrack(format);
+//                indexMap.put(i, dstIndex);
+            }
         }
 
         boolean sawEOS = false;
@@ -109,7 +120,8 @@ public class VideoDecoder {
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
 
         muxer.start();
-
+        extractor.unselectTrack(audioTrackIndex);
+        extractor.selectTrack(videoTrackIndex);
         while (!sawEOS) {
             bufferInfo.offset = offset;
             bufferInfo.size = extractor.readSampleData(dstBuf, offset);
@@ -119,25 +131,27 @@ public class VideoDecoder {
             } else {
                 bufferInfo.presentationTimeUs = extractor.getSampleTime();
                 int newFlags = extractor.getSampleFlags();
-                if (bufferInfo != null) {
-                    boolean is_end = (newFlags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) == 0;
-                    if (is_end) {
-                        bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME | MediaCodec.BUFFER_FLAG_END_OF_STREAM;
-                    } else {
-                        bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
-                    }
-                }
+                bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
                 int trackIndex = extractor.getSampleTrackIndex();
                 muxer.writeSampleData(indexMap.get(trackIndex), dstBuf,
                         bufferInfo);
                 extractor.advance();
                 frameCount++;
+                if (trackIndex == videoTrackIndex) {
+                    Log.i(TAG, "videoTrack " + "frameCount is " + frameCount + " flag :" + newFlags + " time :"
+                            + bufferInfo.presentationTimeUs);
+                } else {
+                    Log.i(TAG, "audioTrack " + "frameCount is " + frameCount + " time :"
+                            + bufferInfo.presentationTimeUs);
+                }
             }
         }
+//        muxer.
         muxer.stop();
         muxer.release();
         return true;
     }
+
     public boolean decodeVideo2(String url, long clipPoint, long clipDuration) {
         int videoTrackIndex = -1;
         int audioTrackIndex = -1;
