@@ -197,20 +197,20 @@ public class MainActivity extends AppCompatActivity
      * @return
      */
     protected LayoutAnimationController getAnimationController() {
-        int duration = 400;
+        int duration = 600;
         AnimationSet set = new AnimationSet(true);
 
         Animation animation = new AlphaAnimation(0.0f, 1.0f);
         animation.setDuration(duration);
         set.addAnimation(animation);
 
-        animation = new TranslateAnimation(Animation.RELATIVE_TO_PARENT, 1.0f,
-                Animation.RELATIVE_TO_PARENT, 0.0f, Animation.RELATIVE_TO_SELF,
-                1.0f, Animation.RELATIVE_TO_SELF, 0.0f);
+        animation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0.0f,
+                Animation.RELATIVE_TO_SELF, 0.0f, Animation.RELATIVE_TO_SELF,
+                -1.0f, Animation.RELATIVE_TO_SELF, 0.0f);
         animation.setDuration(duration);
         set.addAnimation(animation);
 
-        LayoutAnimationController controller = new LayoutAnimationController(set, 0.3f);
+        LayoutAnimationController controller = new LayoutAnimationController(set, 0.5f);
         controller.setOrder(LayoutAnimationController.ORDER_NORMAL);
         return controller;
     }

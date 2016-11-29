@@ -43,14 +43,18 @@
             android:label="@string/title_activity_video_edit"
             android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.VIEW"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+
                 <data
                     android:host="*"
                     android:mimeType="video/mp4"
                     android:pathPattern=".*\\.mp4"
-                    android:scheme="file" />
+                    android:scheme="file"/>
             </intent-filter>
+        </activity>
+        <activity android:name=".DecodeActivity">
         </activity>
     </application>
 

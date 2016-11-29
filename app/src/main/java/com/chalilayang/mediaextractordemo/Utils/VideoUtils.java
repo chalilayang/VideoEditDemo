@@ -44,7 +44,7 @@ public class VideoUtils {
         switch (type) {
             case METHOD_BY_MEDIA:
                 VideoDecoder decoder = new VideoDecoder();
-                decoder.decodeVideo2(path, start, end - start);
+                decoder.decodeVideo3(path, despath, start, end - start);
                 break;
             case METHOD_BY_MP4PARSER:
                 try {

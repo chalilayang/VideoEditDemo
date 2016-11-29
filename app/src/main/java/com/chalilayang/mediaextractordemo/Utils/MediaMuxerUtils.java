@@ -27,7 +27,7 @@ import static junit.framework.Assert.fail;
 
 public class MediaMuxerUtils {
     private static final String TAG = "MediaMuxerTest";
-    private static final boolean VERBOSE = false;
+    private static final boolean VERBOSE = true;
     private static final int MAX_SAMPLE_SIZE = 256 * 1024;
     private Resources mResources;
 

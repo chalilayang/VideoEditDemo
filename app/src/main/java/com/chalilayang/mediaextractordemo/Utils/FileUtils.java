@@ -21,10 +21,10 @@ public class FileUtils {
             return "";
         }
         int index = path.lastIndexOf(File.separatorChar);
-        if (index < 0) {
+        if (index < 0 && index < path.length()-1) {
             return path;
         } else {
-            return path.substring(index);
+            return path.substring(index + 1);
         }
     }
 }

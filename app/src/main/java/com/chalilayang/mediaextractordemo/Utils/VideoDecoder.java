@@ -28,8 +28,11 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+
+import static junit.framework.Assert.assertEquals;
 
 /**
  * Created by chalilayang on 2016/11/15.
@@ -58,7 +61,83 @@ public class VideoDecoder {
         }
         return videoInfo;
     }
+    public boolean decodeVideo3(String srcFilePath,
+                                String dstFilePath,
+                                long clipPoint,
+                                long clipDuration) {
+        if (TextUtils.isEmpty(srcFilePath)) {
+            return false;
+        }
+        File srcfile = new File(srcFilePath);
+        if (!srcfile.exists() || !srcfile.isFile()) {
+            return false;
+        }
 
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(srcFilePath);
+        } catch (IOException e) {
+            Log.i(TAG, "decodeVideo3: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+
+        MediaMuxer muxer;
+        try {
+            muxer = new MediaMuxer(dstFilePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        } catch (IOException e) {
+            Log.i(TAG, "decodeVideo3: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+
+        int trackCount = extractor.getTrackCount();
+        HashMap<Integer, Integer> indexMap = new HashMap<Integer, Integer>(trackCount);
+
+        for (int i = 0; i < trackCount; i++) {
+            extractor.selectTrack(i);
+            MediaFormat format = extractor.getTrackFormat(i);
+            int dstIndex = muxer.addTrack(format);
+            indexMap.put(i, dstIndex);
+        }
+
+        boolean sawEOS = false;
+        int bufferSize = 256 * 1024;
+        int frameCount = 0;
+        int offset = 100;
+        ByteBuffer dstBuf = ByteBuffer.allocate(bufferSize);
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+
+        muxer.start();
+
+        while (!sawEOS) {
+            bufferInfo.offset = offset;
+            bufferInfo.size = extractor.readSampleData(dstBuf, offset);
+            if (bufferInfo.size < 0) {
+                sawEOS = true;
+                bufferInfo.size = 0;
+            } else {
+                bufferInfo.presentationTimeUs = extractor.getSampleTime();
+                int newFlags = extractor.getSampleFlags();
+                if (bufferInfo != null) {
+                    boolean is_end = (newFlags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) == 0;
+                    if (is_end) {
+                        bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME | MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+                    } else {
+                        bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+                    }
+                }
+                int trackIndex = extractor.getSampleTrackIndex();
+                muxer.writeSampleData(indexMap.get(trackIndex), dstBuf,
+                        bufferInfo);
+                extractor.advance();
+                frameCount++;
+            }
+        }
+        muxer.stop();
+        muxer.release();
+        return true;
+    }
     public boolean decodeVideo2(String url, long clipPoint, long clipDuration) {
         int videoTrackIndex = -1;
         int audioTrackIndex = -1;

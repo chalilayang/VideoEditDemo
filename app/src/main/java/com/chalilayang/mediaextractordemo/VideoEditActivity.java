@@ -143,7 +143,7 @@ public class VideoEditActivity extends AppCompatActivity {
             if (dest.endsWith(".mp4")) {
                 dest = dest.substring(0, dest.lastIndexOf(".")) + "_output.mp4";
             }
-            VideoUtils.cropVideo(path, dest, head, duration - tail, VideoUtils.METHOD_BY_MP4PARSER);
+            VideoUtils.cropVideo(path, dest, head, duration - tail, VideoUtils.METHOD_BY_MEDIA);
 //            VideoUtils.cloneVideo(path);
 //            VideoUtils.removeAudioTrack(path,
 //                    StorageEngine.getDownloadFile(getApplicationContext(), "ddd")

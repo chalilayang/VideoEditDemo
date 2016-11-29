@@ -174,6 +174,7 @@ public class CaptureActivity extends AppCompatActivity implements View.OnClickLi
         mMediaRecorder.setVideoSize(640, 480); // 设置视频大小
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);// 设置视频编码
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);// 设置音频编码
+        mMediaRecorder.setAudioSamplingRate(44100);
         mMediaRecorder.setMaxDuration(100000); // 设置最大时长
         mMediaRecorder.setOrientationHint(ROTATION_HINT);
 
