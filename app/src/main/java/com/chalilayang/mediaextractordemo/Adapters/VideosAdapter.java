@@ -2,7 +2,6 @@ package com.chalilayang.mediaextractordemo.Adapters;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.provider.MediaStore;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -13,7 +12,6 @@ import android.widget.TextView;
 
 import com.chalilayang.mediaextractordemo.R;
 import com.chalilayang.mediaextractordemo.Utils.VideoThumbnailLoader;
-import com.chalilayang.mediaextractordemo.Utils.VideoUtils;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
 
 import java.util.ArrayList;

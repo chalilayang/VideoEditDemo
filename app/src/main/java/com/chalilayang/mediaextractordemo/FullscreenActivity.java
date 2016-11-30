@@ -23,7 +23,6 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.chalilayang.mediaextractordemo.Utils.StringUtil;
 import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
 import com.chalilayang.mediaextractordemo.constants.Constants;
 import com.chalilayang.mediaextractordemo.entities.VideoData;

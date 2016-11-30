@@ -25,13 +25,11 @@ import com.chalilayang.mediaextractordemo.Utils.FileUtils;
 import com.chalilayang.mediaextractordemo.Utils.SDCardUtil;
 import com.chalilayang.mediaextractordemo.Utils.StorageEngine;
 import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
-import com.chalilayang.mediaextractordemo.Utils.VideoDecoder;
 import com.chalilayang.mediaextractordemo.Utils.VideoUtils;
 import com.chalilayang.mediaextractordemo.entities.SrtEntity;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 

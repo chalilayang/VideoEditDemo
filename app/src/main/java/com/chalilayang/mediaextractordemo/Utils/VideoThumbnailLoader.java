@@ -11,8 +11,6 @@ import android.widget.ImageView;
 
 import com.chalilayang.mediaextractordemo.entities.VideoData;
 
-import java.io.File;
-
 /**
  * Created by chalilayang on 2016/11/17.
  */
