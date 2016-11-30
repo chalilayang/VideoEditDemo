@@ -137,7 +137,17 @@ public class VideoDecoder {
         return true;
     }
 
-    public boolean cropVideo(String url, long clipStartPoint, long clipEndPoint) {
+    public boolean cropVideo(String srcFilePath,
+                             String destFilePath,
+                             long clipStartPoint,
+                             long clipEndPoint) {
+        if (TextUtils.isEmpty(srcFilePath) || TextUtils.isEmpty(destFilePath)) {
+            return false;
+        }
+        File srcfile = new File(srcFilePath);
+        if (!srcfile.exists() || !srcfile.isFile()) {
+            return false;
+        }
         final int MAX_INPUT_SIZE = 1024 * 1204;
         int videoTrackIndex = -1;
         int audioTrackIndex = -1;
@@ -149,9 +159,8 @@ public class VideoDecoder {
 
         mediaExtractor = new MediaExtractor();
         try {
-            mediaExtractor.setDataSource(url);
-            mediaMuxer = new MediaMuxer(url.substring(0, url.lastIndexOf(".")) + "_output.mp4",
-                    MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            mediaExtractor.setDataSource(srcFilePath);
+            mediaMuxer = new MediaMuxer(destFilePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         } catch (Exception e) {
             Log.e(TAG, "error path" + e.getMessage());
         }
