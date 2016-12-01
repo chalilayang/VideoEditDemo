@@ -10,7 +10,9 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
+import android.os.RemoteException;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -20,12 +22,16 @@ import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.chalilayang.mediaextractordemo.Utils.FileUtils;
 import com.chalilayang.mediaextractordemo.Utils.SDCardUtil;
 import com.chalilayang.mediaextractordemo.Utils.StorageEngine;
 import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
 import com.chalilayang.mediaextractordemo.Utils.VideoUtils;
+import com.chalilayang.mediaextractordemo.aidl.BinderPool;
+import com.chalilayang.mediaextractordemo.aidl.BinderPoolImpl;
+import com.chalilayang.mediaextractordemo.aidl.VideoEditManagerImpl;
 import com.chalilayang.mediaextractordemo.entities.SrtEntity;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
 
@@ -39,6 +45,8 @@ public class VideoEditActivity extends AppCompatActivity {
     private static final int MSG_PARSED = 26;
     private static final int MSG_CUT_FINISHED = 30;
     private static final int MSG_ADD_TEXT_TRACK_FINISHED = 31;
+    private static final int MSG_BINDER_READY = 32;
+    private static final int MSG_PROGRESS = 33;
     private VideoData videoToEdit;
 
     private TextView videoNameTv;
@@ -68,6 +76,9 @@ public class VideoEditActivity extends AppCompatActivity {
     private int frameRate;
     private int trackNumber;
     private boolean videoHasParsed = false;
+
+    private IVideoEditManager iVideoEditManager;
+    private BinderPool mBinderPool;
 
     private Handler handler = new Handler() {
         @Override
@@ -99,6 +110,17 @@ public class VideoEditActivity extends AppCompatActivity {
                 case MSG_ADD_TEXT_TRACK_FINISHED:
                     Snackbar.make(cutBtn, "字幕添加完成", Snackbar.LENGTH_LONG)
                             .setAction("Action", null).show();
+                    break;
+                case MSG_BINDER_READY:
+                    try {
+                        iVideoEditManager.registerListener(mIOnNewBookArrivedListener);
+                        iVideoEditManager.editVideo(videoToEdit);
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                case MSG_PROGRESS:
+                    Toast.makeText(getApplicationContext(), ""+msg.arg1, Toast.LENGTH_SHORT).show();
                     break;
             }
         }
@@ -204,6 +226,15 @@ public class VideoEditActivity extends AppCompatActivity {
         setContentView(R.layout.activity_video_edit);
         initData();
         initView();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                mBinderPool = BinderPool.getInstance(getApplicationContext());
+                IBinder binder = mBinderPool.queryBinder(BinderPoolImpl.BINDER_ID_VIDEO_EDIT);
+                iVideoEditManager = VideoEditManagerImpl.asInterface(binder);
+                handler.obtainMessage(MSG_BINDER_READY).sendToTarget();
+            }
+        }).start();
     }
 
     @Override
@@ -281,7 +312,6 @@ public class VideoEditActivity extends AppCompatActivity {
         }
 
         final int trackcount = this.trackNumber = mediaExtractor.getTrackCount();
-        //获取每个轨道的信息
         for (int i = 0; i < trackcount; i++) {
             try {
                 mediaFormat = mediaExtractor.getTrackFormat(i);
@@ -337,5 +367,31 @@ public class VideoEditActivity extends AppCompatActivity {
             return false;
         }
         return true;
+    }
+
+    private IVideoEditListener mIOnNewBookArrivedListener = new IVideoEditListener.Stub() {
+        @Override
+        public void onProgress(int progress, int max) throws RemoteException {
+            Log.i(TAG, "onProgress: " + progress);
+            Message msg = handler.obtainMessage(MSG_PROGRESS);
+            msg.arg1 = progress;
+            handler.sendMessage(msg);
+        }
+
+        @Override
+        public void onCodecStart(VideoData video) throws RemoteException {
+
+        }
+
+        @Override
+        public void onCodecFinish(VideoData video) throws RemoteException {
+
+        }
+    };
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        BinderPool.unbindService();
     }
 }

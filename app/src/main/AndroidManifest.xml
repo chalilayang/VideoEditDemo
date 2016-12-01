@@ -56,6 +56,19 @@
         </activity>
         <activity android:name=".DecodeActivity">
         </activity>
+
+        <service
+            android:name=".services.CodecService"
+            android:enabled="true"
+            android:exported="false"
+            android:process=":remote">
+        </service>
+        <service
+            android:name=".services.BinderPoolService"
+            android:enabled="true"
+            android:exported="false"
+            android:process=":remote">
+        </service>
     </application>
 
 </manifest>
