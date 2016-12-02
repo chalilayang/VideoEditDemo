@@ -20,5 +20,5 @@
     <string name="video_edit_header_cut">头部剪切时长 ms</string>
     <string name="video_edit_tail_cut">尾部剪切时长 ms</string>
 
-
+    <string name="video_edit_meminfo">内存状态：</string>
 </resources>

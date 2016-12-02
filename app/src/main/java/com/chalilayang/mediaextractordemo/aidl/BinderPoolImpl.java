@@ -1,6 +1,7 @@
 package com.chalilayang.mediaextractordemo.aidl;
 
 import android.os.IBinder;
+import android.os.Process;
 import android.os.RemoteException;
 
 import com.chalilayang.mediaextractordemo.IBinderPool;
@@ -21,5 +22,9 @@ public class BinderPoolImpl extends IBinderPool.Stub {
                 return new VideoEditManagerImpl();
         }
         return new VideoEditManagerImpl();
+    }
+    @Override
+    public int getPid() {
+        return Process.myPid();
     }
 }

@@ -137,6 +137,124 @@ public class VideoDecoder {
         return true;
     }
 
+    public boolean mergeVideos(String srcPath1, String srcPath2, String destPath) {
+        if (TextUtils.isEmpty(srcPath1)) {
+            return false;
+        }
+        File srcfile = new File(srcPath1);
+        if (!srcfile.exists() || !srcfile.isFile()) {
+            return false;
+        }
+        if (TextUtils.isEmpty(srcPath2)) {
+            return false;
+        }
+        srcfile = new File(srcPath2);
+        if (!srcfile.exists() || !srcfile.isFile()) {
+            return false;
+        }
+
+        MediaExtractor extractor = new MediaExtractor();
+        MediaExtractor extractor2 = new MediaExtractor();
+        try {
+            extractor.setDataSource(srcPath1);
+            extractor2.setDataSource(srcPath2);
+        } catch (IOException e) {
+            Log.i(TAG, "removeAudio: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+
+        MediaMuxer muxer;
+        try {
+            muxer = new MediaMuxer(destPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        } catch (IOException e) {
+            Log.i(TAG, "removeAudio: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+
+        int trackCount = extractor.getTrackCount();
+        int trackCount2 = extractor2.getTrackCount();
+
+        int videoTrackId = -1;
+        int videoTrackId2 = -1;
+
+        int videoTrackIndex = -1;
+
+        for (int i = 0; i < trackCount; i++) {
+            MediaFormat format = extractor.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                videoTrackId = i;
+                videoTrackIndex = muxer.addTrack(format);
+                extractor.selectTrack(i);
+                break;
+            }
+        }
+
+        for (int i = 0; i < trackCount2; i++) {
+            MediaFormat format = extractor2.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                videoTrackId2 = i;
+                extractor2.selectTrack(i);
+                break;
+            }
+        }
+
+        long endTime = 0;
+        boolean sawEOS = false;
+        int bufferSize = 256 * 1024;
+        int offset = 0;
+        ByteBuffer dstBuf = ByteBuffer.allocate(bufferSize);
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+
+        muxer.start();
+
+        extractor.selectTrack(videoTrackId);
+        while (!sawEOS) {
+            bufferInfo.offset = offset;
+            bufferInfo.size = extractor.readSampleData(dstBuf, offset);
+            if (bufferInfo.size < 0) {
+                sawEOS = true;
+                bufferInfo.size = 0;
+            } else {
+                bufferInfo.presentationTimeUs = endTime = extractor.getSampleTime();
+                bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+                int trackId = extractor.getSampleTrackIndex();
+                if (trackId == videoTrackId) {
+                    muxer.writeSampleData(videoTrackIndex, dstBuf,
+                            bufferInfo);
+                }
+                extractor.advance();
+            }
+        }
+
+        extractor2.selectTrack(videoTrackId2);
+        sawEOS = false;
+        while (!sawEOS) {
+            bufferInfo.offset = offset;
+            bufferInfo.size = extractor2.readSampleData(dstBuf, offset);
+            if (bufferInfo.size < 0) {
+                sawEOS = true;
+                bufferInfo.size = 0;
+            } else {
+                bufferInfo.presentationTimeUs = extractor2.getSampleTime() + endTime;
+                bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+                int trackId = extractor2.getSampleTrackIndex();
+                if (trackId == videoTrackId2) {
+                    muxer.writeSampleData(videoTrackIndex, dstBuf,
+                            bufferInfo);
+                }
+                extractor2.advance();
+            }
+        }
+
+        muxer.stop();
+        muxer.release();
+        return true;
+    }
+
     public boolean cropVideo(String srcFilePath,
                              String destFilePath,
                              long clipStartPoint,

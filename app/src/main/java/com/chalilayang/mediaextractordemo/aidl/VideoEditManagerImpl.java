@@ -1,5 +1,6 @@
 package com.chalilayang.mediaextractordemo.aidl;
 
+import android.os.Process;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.util.Log;
@@ -59,5 +60,9 @@ public class VideoEditManagerImpl extends IVideoEditManager.Stub {
 //                }
 //            }
 //        }).start();
+    }
+    @Override
+    public int getPid() {
+        return Process.myPid();
     }
 }

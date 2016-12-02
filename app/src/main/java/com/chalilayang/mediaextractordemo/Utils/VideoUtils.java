@@ -3,9 +3,11 @@ package com.chalilayang.mediaextractordemo.Utils;
 import android.graphics.Bitmap;
 import android.media.ThumbnailUtils;
 import android.support.annotation.IntDef;
+import android.text.TextUtils;
 
 import com.chalilayang.mediaextractordemo.entities.SrtEntity;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -79,6 +81,35 @@ public class VideoUtils {
         String dst = path.substring(0, path.lastIndexOf(".")) + "_srt.mp4";
         Mp4Parser.addTextTrack(path, dst, entities);
         return true;
+    }
+
+    public static boolean mergeVideos(List<String> fileList, String desPath) {
+        if (fileList != null) {
+            int size = fileList.size();
+            if (size <= 0) {
+                return false;
+            } else {
+                String[] files = new String[size];
+                fileList.toArray(files);
+                for(int index = 0; index < size; index ++) {
+                    String path = files[index];
+                    if (TextUtils.isEmpty(path) || !(new File(path)).exists()) {
+                        return false;
+                    }
+                }
+//                try {
+//                    Mp4Parser.appendVideo(files, desPath);
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                    return false;
+//                }
+                VideoDecoder decoder = new VideoDecoder();
+                decoder.mergeVideos(files[0], files[1], desPath);
+                return true;
+            }
+        } else {
+            return false;
+        }
     }
 
     @IntDef(

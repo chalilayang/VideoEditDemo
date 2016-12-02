@@ -185,9 +185,9 @@ public class Mp4Parser {
 
         Movie result = new Movie();
 
-        if (audioTracks.size() > 0) {
-            result.addTrack(new AppendTrack(audioTracks.toArray(new Track[audioTracks.size()])));
-        }
+//        if (audioTracks.size() > 0) {
+//            result.addTrack(new AppendTrack(audioTracks.toArray(new Track[audioTracks.size()])));
+//        }
         if (videoTracks.size() > 0) {
             result.addTrack(new AppendTrack(videoTracks.toArray(new Track[videoTracks.size()])));
         }

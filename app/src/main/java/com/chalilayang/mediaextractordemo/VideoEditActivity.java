@@ -1,5 +1,6 @@
 package com.chalilayang.mediaextractordemo;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -12,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.Process;
 import android.os.RemoteException;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
@@ -37,7 +39,10 @@ import com.chalilayang.mediaextractordemo.entities.VideoData;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class VideoEditActivity extends AppCompatActivity {
 
@@ -47,6 +52,8 @@ public class VideoEditActivity extends AppCompatActivity {
     private static final int MSG_ADD_TEXT_TRACK_FINISHED = 31;
     private static final int MSG_BINDER_READY = 32;
     private static final int MSG_PROGRESS = 33;
+    private static final int MSG_MEMINFO = 35;
+    private static final int MSG_MERGE_FINISHED = 36;
     private VideoData videoToEdit;
 
     private TextView videoNameTv;
@@ -54,12 +61,14 @@ public class VideoEditActivity extends AppCompatActivity {
     private TextView videoSizeTv;
     private TextView videoSampleRateTv;
     private TextView videoTrackTv;
+    private TextView videoMemInfoTv;
 
     private EditText headCutEdtv;
     private EditText tailCutEdtv;
 
     private FloatingActionButton cutBtn;
     private FloatingActionButton addBtn;
+    private FloatingActionButton mergeBtn;
 
     private MediaExtractor mediaExtractor = new MediaExtractor();
     private MediaFormat mediaFormat;
@@ -79,7 +88,6 @@ public class VideoEditActivity extends AppCompatActivity {
 
     private IVideoEditManager iVideoEditManager;
     private BinderPool mBinderPool;
-
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -106,23 +114,57 @@ public class VideoEditActivity extends AppCompatActivity {
                                     .setAction("Action", null).show();
                         }
                     }
+                    this.removeMessages(MSG_MEMINFO);
                     break;
                 case MSG_ADD_TEXT_TRACK_FINISHED:
                     Snackbar.make(cutBtn, "字幕添加完成", Snackbar.LENGTH_LONG)
+                            .setAction("Action", null).show();
+                    break;
+                case MSG_MERGE_FINISHED:
+                    Snackbar.make(cutBtn, "合并完成", Snackbar.LENGTH_LONG)
                             .setAction("Action", null).show();
                     break;
                 case MSG_BINDER_READY:
                     try {
                         iVideoEditManager.registerListener(mIOnNewBookArrivedListener);
                         iVideoEditManager.editVideo(videoToEdit);
+                        int remote_pid = iVideoEditManager.getPid();
+                        int locale_pid = Process.myPid();
+                        Toast.makeText(getApplicationContext(), "remotePid: " + remote_pid + " " +
+                                "localePid:" + locale_pid, Toast.LENGTH_SHORT).show();
                     } catch (RemoteException e) {
                         e.printStackTrace();
                     }
                     break;
                 case MSG_PROGRESS:
-                    Toast.makeText(getApplicationContext(), ""+msg.arg1, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "" + msg.arg1, Toast.LENGTH_SHORT)
+                            .show();
+                    break;
+                case MSG_MEMINFO:
+                    String str = getMemInfo();
+                    videoMemInfoTv.setText(str);
+                    this.sendEmptyMessageDelayed(MSG_MEMINFO, 1000);
                     break;
             }
+        }
+    };
+    private IVideoEditListener mIOnNewBookArrivedListener = new IVideoEditListener.Stub() {
+        @Override
+        public void onProgress(int progress, int max) throws RemoteException {
+            Log.i(TAG, "onProgress: " + progress);
+            Message msg = handler.obtainMessage(MSG_PROGRESS);
+            msg.arg1 = progress;
+            handler.sendMessage(msg);
+        }
+
+        @Override
+        public void onCodecStart(VideoData video) throws RemoteException {
+
+        }
+
+        @Override
+        public void onCodecFinish(VideoData video) throws RemoteException {
+
         }
     };
     AsyncTask<VideoData, Void, Void> parseTask = new AsyncTask<VideoData, Void, Void>() {
@@ -163,6 +205,7 @@ public class VideoEditActivity extends AppCompatActivity {
             if (dest.endsWith(".mp4")) {
                 dest = dest.substring(0, dest.lastIndexOf(".")) + "_output.mp4";
             }
+            handler.sendEmptyMessageDelayed(MSG_MEMINFO, 1000);
             VideoUtils.cropVideo(path, dest, head, duration - tail, VideoUtils.METHOD_BY_MEDIA);
             return true;
         }
@@ -175,7 +218,6 @@ public class VideoEditActivity extends AppCompatActivity {
             super.onPostExecute(aBoolean);
         }
     };
-
     AsyncTask<Void, Void, Void> addTextgTrackTask = new AsyncTask<Void, Void, Void>() {
         @Override
         protected Void doInBackground(Void... params) {
@@ -188,7 +230,8 @@ public class VideoEditActivity extends AppCompatActivity {
             long sec = videoDuration / 1000000l;
             for (int index = 0; index < sec; index++) {
                 start += 1000;
-                list.add(new SrtEntity(start, start + 1000, "第" + start/1000 + "秒 字幕：----------"));
+                list.add(new SrtEntity(start, start + 1000, "第" + start / 1000 + "秒 " +
+                        "字幕：----------"));
             }
 //            list.add(new SrtEntity(start, 1000, "0-----1"));
 //            list.add(new SrtEntity(2000, 10000, "2------10"));
@@ -201,6 +244,29 @@ public class VideoEditActivity extends AppCompatActivity {
         protected void onPreExecute() {
             super.onPreExecute();
             handler.obtainMessage(MSG_ADD_TEXT_TRACK_FINISHED).sendToTarget();
+        }
+    };
+    AsyncTask<Void, Void, Void> mergeVideosTask = new AsyncTask<Void, Void, Void>() {
+        @Override
+        protected Void doInBackground(Void... params) {
+            String path = videoToEdit.filePath;
+            String appendVideo = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
+                    + File.separatorChar
+                    + "appendVideo.mp4";
+            List<String> videos = new ArrayList<>(2);
+            videos.add(path);
+            videos.add(appendVideo);
+            String dest = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
+                    + File.separatorChar
+                    + "mergedVideo.mp4";
+            VideoUtils.mergeVideos(videos, dest);
+            return null;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            handler.obtainMessage(MSG_MERGE_FINISHED).sendToTarget();
         }
     };
 
@@ -277,6 +343,7 @@ public class VideoEditActivity extends AppCompatActivity {
         videoSizeTv = (TextView) findViewById(R.id.video_edit_filesize);
         videoSampleRateTv = (TextView) findViewById(R.id.video_edit_samplerate);
         videoTrackTv = (TextView) findViewById(R.id.video_edit_track_num);
+        videoMemInfoTv = (TextView) findViewById(R.id.video_edit_meminfo);
 
         headCutEdtv = (EditText) findViewById(R.id.video_edit_input_header_edtv);
         tailCutEdtv = (EditText) findViewById(R.id.video_edit_input_tail_edtv);
@@ -299,6 +366,13 @@ public class VideoEditActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 doAdd();
+            }
+        });
+        mergeBtn = (FloatingActionButton) findViewById(R.id.merge_videos);
+        mergeBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                doMerge();
             }
         });
     }
@@ -355,6 +429,9 @@ public class VideoEditActivity extends AppCompatActivity {
     private void doAdd() {
         addTextgTrackTask.execute();
     }
+    private void doMerge() {
+        mergeVideosTask.execute();
+    }
 
     private boolean checkInput(long head, long tail, long duration) {
         if (head < 0 || head >= duration) {
@@ -369,29 +446,47 @@ public class VideoEditActivity extends AppCompatActivity {
         return true;
     }
 
-    private IVideoEditListener mIOnNewBookArrivedListener = new IVideoEditListener.Stub() {
-        @Override
-        public void onProgress(int progress, int max) throws RemoteException {
-            Log.i(TAG, "onProgress: " + progress);
-            Message msg = handler.obtainMessage(MSG_PROGRESS);
-            msg.arg1 = progress;
-            handler.sendMessage(msg);
-        }
-
-        @Override
-        public void onCodecStart(VideoData video) throws RemoteException {
-
-        }
-
-        @Override
-        public void onCodecFinish(VideoData video) throws RemoteException {
-
-        }
-    };
-
     @Override
     protected void onStop() {
         super.onStop();
-        BinderPool.unbindService();
+//        BinderPool.unbindService();
+    }
+
+    public String getMemInfo() {
+        StringBuilder sb = new StringBuilder();
+        ActivityManager activityManager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(memoryInfo);
+
+        sb.append(" memoryInfo.availMem " + memoryInfo.availMem + "\n");
+        sb.append(" memoryInfo.lowMemory " + memoryInfo.lowMemory + "\n");
+        sb.append(" memoryInfo.threshold " + memoryInfo.threshold + "\n");
+
+        List<ActivityManager.RunningAppProcessInfo> runningAppProcesses = activityManager
+                .getRunningAppProcesses();
+
+        Map<Integer, String> pidMap = new TreeMap<Integer, String>();
+        for (ActivityManager.RunningAppProcessInfo runningAppProcessInfo : runningAppProcesses) {
+            if (Process.myPid() == runningAppProcessInfo.pid) {
+                pidMap.put(runningAppProcessInfo.pid, runningAppProcessInfo.processName);
+            }
+        }
+
+        Collection<Integer> keys = pidMap.keySet();
+
+        for (int key : keys) {
+            int pids[] = new int[1];
+            pids[0] = key;
+            android.os.Debug.MemoryInfo[] memoryInfoArray = activityManager.getProcessMemoryInfo
+                    (pids);
+            for (android.os.Debug.MemoryInfo pidMemoryInfo : memoryInfoArray) {
+                sb.append(String.format("** MEMINFO in pid %d [%s] **\n", pids[0], pidMap.get
+                        (pids[0])));
+                sb.append(" pidMemoryInfo.getTotalPss(): " + pidMemoryInfo.getTotalPss() + "\n");
+                sb.append(" pidMemoryInfo.getTotalSharedDirty(): " + pidMemoryInfo
+                        .getTotalSharedDirty() + "\n");
+            }
+        }
+        return sb.toString();
     }
 }

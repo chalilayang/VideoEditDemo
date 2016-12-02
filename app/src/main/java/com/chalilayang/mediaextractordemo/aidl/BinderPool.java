@@ -87,9 +87,11 @@ public class BinderPool {
         return binder;
     }
 
-    public static void unbindService() {
+    public static synchronized void unbindService() {
         if (sInstance != null && sInstance.mConnection != null) {
             sInstance.mContext.unbindService(sInstance.mConnection);
+            sInstance = null;
+            sInstance.mConnection = null;
         }
     }
 }

@@ -7,4 +7,5 @@ interface IVideoEditManager {
     void editVideo(in VideoData video);
     void registerListener(IVideoEditListener listener);
     void unregisterListener(IVideoEditListener listener);
+    int getPid();
 }

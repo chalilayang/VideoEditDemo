@@ -5,4 +5,5 @@ package com.chalilayang.mediaextractordemo;
 
 interface IBinderPool {
     IBinder queryBinder(int binderCode);
+    int getPid();
 }

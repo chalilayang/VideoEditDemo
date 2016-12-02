@@ -29,6 +29,7 @@ import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 public class CaptureActivity extends AppCompatActivity implements View.OnClickListener, SurfaceHolder.Callback {
     public static final int UPDATE_TIME = 0; // 更新录音时间的消息编号
@@ -158,6 +159,7 @@ public class CaptureActivity extends AppCompatActivity implements View.OnClickLi
         if (parameters.isVideoStabilizationSupported()) {
             parameters.setVideoStabilization(true);
         }
+        List<Camera.Size> sizes = parameters.getSupportedPreviewSizes();
         camera.setParameters(parameters);
         camera.startPreview();
 
@@ -171,10 +173,10 @@ public class CaptureActivity extends AppCompatActivity implements View.OnClickLi
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4); // 设置输出格式为mp4
-        mMediaRecorder.setVideoSize(640, 480); // 设置视频大小
+        mMediaRecorder.setVideoSize(1184, 720); // 设置视频大小
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);// 设置视频编码
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);// 设置音频编码
-        mMediaRecorder.setAudioSamplingRate(44100);
+        mMediaRecorder.setAudioSamplingRate(8000);
         mMediaRecorder.setMaxDuration(100000); // 设置最大时长
         mMediaRecorder.setOrientationHint(ROTATION_HINT);
 
@@ -202,7 +204,7 @@ public class CaptureActivity extends AppCompatActivity implements View.OnClickLi
 
     private File getOutputMediaFile() {
         File outputFile = StorageEngine.getDownloadFile(getApplicationContext()
-                , FileUtils.generateNameByDate() + ".mp4");
+                , "appendVideo" + ".mp4");
         Log.i(TAG, "createTempFile: " + outputFile.getAbsolutePath());
         return outputFile;
     }
