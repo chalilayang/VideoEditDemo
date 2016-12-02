@@ -104,7 +104,7 @@ public class VideoUtils {
 //                    return false;
 //                }
                 VideoDecoder decoder = new VideoDecoder();
-                decoder.mergeVideos(files[0], files[1], desPath);
+                decoder.mergeVideos(fileList, desPath);
                 return true;
             }
         } else {

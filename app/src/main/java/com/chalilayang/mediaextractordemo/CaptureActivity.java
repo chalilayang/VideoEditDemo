@@ -204,7 +204,7 @@ public class CaptureActivity extends AppCompatActivity implements View.OnClickLi
 
     private File getOutputMediaFile() {
         File outputFile = StorageEngine.getDownloadFile(getApplicationContext()
-                , "appendVideo" + ".mp4");
+                , FileUtils.generateNameByDate() + ".mp4");
         Log.i(TAG, "createTempFile: " + outputFile.getAbsolutePath());
         return outputFile;
     }

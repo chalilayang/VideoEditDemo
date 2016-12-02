@@ -137,122 +137,134 @@ public class VideoDecoder {
         return true;
     }
 
-    public boolean mergeVideos(String srcPath1, String srcPath2, String destPath) {
-        if (TextUtils.isEmpty(srcPath1)) {
+    /**
+     * merge more than one mp4 files into single one mp4 file
+     *
+     * @param srcPaths absolute path list of mp4 files to be merged
+     * @param destPath absolute path of output-file
+     * @return
+     */
+    public boolean mergeVideos(List<String> srcPaths, String destPath) {
+        boolean result = true;
+        if (srcPaths == null
+                || destPath == null
+                || srcPaths.size() <= 0
+                || TextUtils.isEmpty(destPath)
+                ) {
             return false;
         }
-        File srcfile = new File(srcPath1);
-        if (!srcfile.exists() || !srcfile.isFile()) {
-            return false;
-        }
-        if (TextUtils.isEmpty(srcPath2)) {
-            return false;
-        }
-        srcfile = new File(srcPath2);
-        if (!srcfile.exists() || !srcfile.isFile()) {
-            return false;
-        }
-
-        MediaExtractor extractor = new MediaExtractor();
-        MediaExtractor extractor2 = new MediaExtractor();
+        MediaExtractor mediaExtractor = new MediaExtractor();
+        MediaMuxer mediaMuxer = null;
         try {
-            extractor.setDataSource(srcPath1);
-            extractor2.setDataSource(srcPath2);
-        } catch (IOException e) {
-            Log.i(TAG, "removeAudio: " + e.getMessage());
+            mediaMuxer = new MediaMuxer(destPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        } catch (Exception e) {
             e.printStackTrace();
+            mediaMuxer.release();
             return false;
         }
 
-        MediaMuxer muxer;
-        try {
-            muxer = new MediaMuxer(destPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-        } catch (IOException e) {
-            Log.i(TAG, "removeAudio: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-
-        int trackCount = extractor.getTrackCount();
-        int trackCount2 = extractor2.getTrackCount();
-
-        int videoTrackId = -1;
-        int videoTrackId2 = -1;
+        int videoTrackIndexInMuxer = -1;
+        int audioTrackIndexInMuxer = -1;
 
         int videoTrackIndex = -1;
+        int audioTrackIndex = -1;
 
-        for (int i = 0; i < trackCount; i++) {
-            MediaFormat format = extractor.getTrackFormat(i);
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            if (mime.startsWith("video/")) {
-                videoTrackId = i;
-                videoTrackIndex = muxer.addTrack(format);
-                extractor.selectTrack(i);
-                break;
+        boolean hasStarted = false;
+        boolean hasAddVideoTrack = false;
+        boolean hasAddAudioTrack = false;
+
+        long baseTime = 0;
+        long lastBaseTime = 0;
+        for (int index = 0, fileCount = srcPaths.size(); index < fileCount; index++) {
+            String filePathStr = srcPaths.get(index);
+            if (TextUtils.isEmpty(filePathStr)) {
+                continue;
             }
-        }
-
-        for (int i = 0; i < trackCount2; i++) {
-            MediaFormat format = extractor2.getTrackFormat(i);
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            if (mime.startsWith("video/")) {
-                videoTrackId2 = i;
-                extractor2.selectTrack(i);
-                break;
+            File filePath = new File(srcPaths.get(index));
+            if (!filePath.exists()
+                    || !filePath.isFile()
+                    || !filePathStr.toLowerCase().endsWith(".mp4")) {
+                continue;
             }
-        }
-
-        long endTime = 0;
-        boolean sawEOS = false;
-        int bufferSize = 256 * 1024;
-        int offset = 0;
-        ByteBuffer dstBuf = ByteBuffer.allocate(bufferSize);
-        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-
-        muxer.start();
-
-        extractor.selectTrack(videoTrackId);
-        while (!sawEOS) {
-            bufferInfo.offset = offset;
-            bufferInfo.size = extractor.readSampleData(dstBuf, offset);
-            if (bufferInfo.size < 0) {
-                sawEOS = true;
-                bufferInfo.size = 0;
-            } else {
-                bufferInfo.presentationTimeUs = endTime = extractor.getSampleTime();
-                bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
-                int trackId = extractor.getSampleTrackIndex();
-                if (trackId == videoTrackId) {
-                    muxer.writeSampleData(videoTrackIndex, dstBuf,
-                            bufferInfo);
+            try {
+                if (mediaExtractor != null) {
+                    mediaExtractor.release();
+                    mediaExtractor = new MediaExtractor();
                 }
-                extractor.advance();
+                mediaExtractor.setDataSource(filePathStr);
+            } catch (IOException e) {
+                Log.i(TAG, "mergeVideos: mediaExtractor.setDataSource index " + index + " " + e
+                        .getMessage());
+                e.printStackTrace();
+                continue;
             }
-        }
 
-        extractor2.selectTrack(videoTrackId2);
-        sawEOS = false;
-        while (!sawEOS) {
-            bufferInfo.offset = offset;
-            bufferInfo.size = extractor2.readSampleData(dstBuf, offset);
-            if (bufferInfo.size < 0) {
-                sawEOS = true;
-                bufferInfo.size = 0;
-            } else {
-                bufferInfo.presentationTimeUs = extractor2.getSampleTime() + endTime;
-                bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
-                int trackId = extractor2.getSampleTrackIndex();
-                if (trackId == videoTrackId2) {
-                    muxer.writeSampleData(videoTrackIndex, dstBuf,
-                            bufferInfo);
+            int trackCount = mediaExtractor.getTrackCount();
+            for (int i = 0; i < trackCount; i++) {
+                mediaExtractor.selectTrack(i);
+                MediaFormat format = mediaExtractor.getTrackFormat(i);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime.startsWith("video/")) {
+                    videoTrackIndex = i;
+                    if (!hasAddVideoTrack) {
+                        videoTrackIndexInMuxer = mediaMuxer.addTrack(format);
+                        hasAddVideoTrack = true;
+                    }
+                    continue;
+                } else if (mime.startsWith("audio/")) {
+                    audioTrackIndex = i;
+                    if (!hasAddAudioTrack) {
+                        audioTrackIndexInMuxer = mediaMuxer.addTrack(format);
+                        hasAddAudioTrack = true;
+                    }
+                    continue;
                 }
-                extractor2.advance();
             }
-        }
 
-        muxer.stop();
-        muxer.release();
-        return true;
+            boolean sawEOS = false;
+            int bufferSize = 1024 * 1024;
+            ByteBuffer dstBuf = ByteBuffer.allocate(bufferSize);
+            MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+
+            if (!hasStarted) {
+                mediaMuxer.start();
+                hasStarted = true;
+            }
+            baseTime = lastBaseTime;
+            while (!sawEOS) {
+                bufferInfo.offset = 0;
+                bufferInfo.size = mediaExtractor.readSampleData(dstBuf, 0);
+                if (bufferInfo.size < 0) {
+                    sawEOS = true;
+                    bufferInfo.size = 0;
+                } else {
+                    lastBaseTime =
+                            bufferInfo.presentationTimeUs =
+                                    baseTime + mediaExtractor.getSampleTime();
+                    int newFlags = mediaExtractor.getSampleFlags();
+                    if (newFlags == 0) {
+                        bufferInfo.flags = 0;
+                    } else {
+                        bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+                    }
+                    int trackIndex = mediaExtractor.getSampleTrackIndex();
+                    if (trackIndex == videoTrackIndex) {
+                        mediaMuxer.writeSampleData(videoTrackIndexInMuxer, dstBuf,
+                                bufferInfo);
+                    } else if (trackIndex == audioTrackIndex) {
+                        mediaMuxer.writeSampleData(audioTrackIndexInMuxer, dstBuf,
+                                bufferInfo);
+                    }
+                    mediaExtractor.advance();
+                }
+            }
+            result = true;
+        }
+        mediaMuxer.stop();
+        mediaMuxer.release();
+        mediaExtractor.release();
+        mediaExtractor = null;
+        return result;
     }
 
     public boolean cropVideo(String srcFilePath,
