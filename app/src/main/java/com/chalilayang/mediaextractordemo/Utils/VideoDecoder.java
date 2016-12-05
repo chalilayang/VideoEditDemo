@@ -6,6 +6,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.TimeUtils;
@@ -137,6 +138,170 @@ public class VideoDecoder {
         return true;
     }
 
+    public static class Segment {
+        final long startTime_ns;
+        final long endTime_ns;
+        public Segment(long start, long end) {
+            this.startTime_ns = start;
+            this.endTime_ns = end;
+        }
+    }
+
+    /**
+     * merge a number of segments of one mp4 video into one video file
+     * @param srcFilePath source file path
+     * @param destFilePath destination file path
+     * @param segments list of entities describe the start-end time point of segments ti be merged
+     * @return
+     */
+    public boolean mergeSegments(String srcFilePath, String destFilePath, List<Segment> segments) {
+        boolean result = false;
+        if (TextUtils.isEmpty(srcFilePath) || srcFilePath.toLowerCase().endsWith("mp4")) {
+            return false;
+        }
+        if (TextUtils.isEmpty(destFilePath) || destFilePath.toLowerCase().endsWith("mp4")) {
+            return false;
+        }
+        if (segments == null || segments.size() <= 0) {
+            return false;
+        }
+        try {
+            File srcFile = new File(srcFilePath);
+            if (!srcFile.exists()) {
+                return false;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        MediaExtractor mediaExtractor = new MediaExtractor();
+        MediaMuxer mediaMuxer = null;
+        try {
+            mediaMuxer = new MediaMuxer(destFilePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (mediaExtractor != null) {
+                mediaMuxer.release();
+            }
+            return false;
+        }
+
+        int videoTrackIndexInMuxer = -1;
+        int audioTrackIndexInMuxer = -1;
+
+        int videoTrackIndex = -1;
+        int audioTrackIndex = -1;
+
+        long videoDuration = -1;
+        long audioDuration = -1;
+
+        boolean hasAddVideoTrack = false;
+        boolean hasAddAudioTrack = false;
+
+        long baseTime = 0;
+        long lastBaseTime = 0;
+
+        try {
+            if (mediaExtractor != null) {
+                mediaExtractor.release();
+                mediaExtractor = new MediaExtractor();
+            }
+            mediaExtractor.setDataSource(srcFilePath);
+        } catch (IOException e) {
+            Log.i(TAG, "mergeVideos: mediaExtractor.setDataSource " + e
+                    .getMessage());
+            e.printStackTrace();
+        }
+        int trackCount = mediaExtractor.getTrackCount();
+        for (int i = 0; i < trackCount; i++) {
+            mediaExtractor.selectTrack(i);
+            MediaFormat format = mediaExtractor.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                videoTrackIndex = i;
+                videoDuration = format.getLong(MediaFormat.KEY_DURATION);
+                if (!hasAddVideoTrack) {
+                    videoTrackIndexInMuxer = mediaMuxer.addTrack(format);
+                    hasAddVideoTrack = true;
+                }
+                continue;
+            } else if (mime.startsWith("audio/")) {
+                audioTrackIndex = i;
+                audioDuration = format.getLong(MediaFormat.KEY_DURATION);
+                if (!hasAddAudioTrack) {
+                    audioTrackIndexInMuxer = mediaMuxer.addTrack(format);
+                    hasAddAudioTrack = true;
+                }
+                continue;
+            }
+        }
+        boolean sawEOS = false;
+        int bufferSize = 1024 * 1024;
+        ByteBuffer dstBuf = ByteBuffer.allocate(bufferSize);
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+
+        mediaMuxer.start();
+        for (int index = 0, count = segments.size(); index < count; index ++) {
+            long start = segments.get(index).startTime_ns;
+            long end = segments.get(index).endTime_ns;
+            if (start >= end
+                    || start < 0
+                    || end > videoDuration) {
+                break;
+            }
+            mediaExtractor.seekTo(start, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+            boolean hasReachTargetPoint = false;
+            baseTime = lastBaseTime;
+            while (!sawEOS) {
+                bufferInfo.offset = 0;
+                bufferInfo.size = mediaExtractor.readSampleData(dstBuf, 0);
+                if (bufferInfo.size < 0) {
+                    sawEOS = true;
+                    bufferInfo.size = 0;
+                } else {
+                    long presentTime = mediaExtractor.getSampleTime();
+                    int newFlags = mediaExtractor.getSampleFlags();
+                    if (newFlags == 0) {
+                        bufferInfo.flags = 0;
+                    } else {
+                        bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+                    }
+                    int trackIndex = mediaExtractor.getSampleTrackIndex();
+                    if (trackIndex == videoTrackIndex) {
+                        if (hasReachTargetPoint) {
+                            break;
+                        } else if (presentTime > end) {
+                            hasReachTargetPoint = true;
+                        } else {
+                            lastBaseTime =
+                                    bufferInfo.presentationTimeUs =
+                                            baseTime + presentTime;
+                            mediaMuxer.writeSampleData(videoTrackIndexInMuxer, dstBuf,
+                                    bufferInfo);
+                        }
+
+                    } else if (trackIndex == audioTrackIndex) {
+                        if (hasReachTargetPoint) {
+                            break;
+                        } else if (presentTime > end) {
+                            hasReachTargetPoint = true;
+                        } else {
+                            lastBaseTime =
+                                    bufferInfo.presentationTimeUs =
+                                            baseTime + presentTime;
+                            mediaMuxer.writeSampleData(audioTrackIndexInMuxer, dstBuf,
+                                    bufferInfo);
+                        }
+                    }
+                    mediaExtractor.advance();
+                }
+            }
+        }
+
+        return result;
+    }
+
     /**
      * merge more than one mp4 files into single one mp4 file
      *
@@ -144,7 +309,7 @@ public class VideoDecoder {
      * @param destPath absolute path of output-file
      * @return
      */
-    public boolean mergeVideos(List<String> srcPaths, String destPath) {
+    public boolean mergeVideos(@NonNull  List<String> srcPaths, @NonNull  String destPath) {
         boolean result = true;
         if (srcPaths == null
                 || destPath == null
