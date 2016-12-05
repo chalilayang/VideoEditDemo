@@ -1,39 +1,17 @@
 package com.chalilayang.mediaextractordemo.Utils;
 
-import android.content.Context;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.TimeUtils;
-
-import com.coremedia.iso.boxes.Container;
-import com.coremedia.iso.boxes.TimeToSampleBox;
-import com.googlecode.mp4parser.authoring.Movie;
-import com.googlecode.mp4parser.authoring.Track;
-import com.googlecode.mp4parser.authoring.builder.DefaultMp4Builder;
-import com.googlecode.mp4parser.authoring.container.mp4.MovieCreator;
-import com.googlecode.mp4parser.authoring.tracks.AppendTrack;
-import com.googlecode.mp4parser.authoring.tracks.CroppedTrack;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
-
-import static junit.framework.Assert.assertEquals;
 
 /**
  * Created by chalilayang on 2016/11/15.
@@ -154,7 +132,9 @@ public class VideoDecoder {
      * @param segments list of entities describe the start-end time point of segments ti be merged
      * @return
      */
-    public boolean mergeSegments(String srcFilePath, String destFilePath, List<Segment> segments) {
+    public boolean mergeSegments(String srcFilePath,
+                                 String destFilePath,
+                                 List<Segment> segments) {
         boolean result = false;
         if (TextUtils.isEmpty(srcFilePath) || srcFilePath.toLowerCase().endsWith("mp4")) {
             return false;
@@ -309,7 +289,8 @@ public class VideoDecoder {
      * @param destPath absolute path of output-file
      * @return
      */
-    public boolean mergeVideos(@NonNull  List<String> srcPaths, @NonNull  String destPath) {
+    public boolean mergeVideos(List<String> srcPaths,
+                               String destPath) {
         boolean result = true;
         if (srcPaths == null
                 || destPath == null
