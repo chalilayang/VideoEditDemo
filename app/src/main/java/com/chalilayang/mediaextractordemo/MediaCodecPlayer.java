@@ -173,7 +173,7 @@ public class MediaCodecPlayer extends AppCompatActivity
             Log.e(TAG, "error path" + e.getMessage());
         }
 
-        MediaFormat mediaFormat = null;
+        MediaFormat mediaFormat;
         final int trackCount = this.trackNumber = mediaExtractor.getTrackCount();
         for (int i = 0; i < trackCount; i++) {
             try {

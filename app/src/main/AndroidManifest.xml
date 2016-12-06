@@ -72,6 +72,11 @@
 
         <activity android:name=".MediaCodecPlayer">
         </activity>
+        <activity
+            android:name=".MediaCodecPlayActivity"
+            android:label="@string/title_activity_media_codec_play"
+            android:theme="@style/AppTheme.NoActionBar">
+        </activity>
     </application>
 
 </manifest>

@@ -21,4 +21,5 @@
     <string name="video_edit_tail_cut">尾部剪切时长 ms</string>
 
     <string name="video_edit_meminfo">内存状态：</string>
+    <string name="title_activity_media_codec_play">MediaCodecPlayActivity</string>
 </resources>
