@@ -120,6 +120,7 @@ public class MediaCodecPlayer extends AppCompatActivity
 
     @Override
     public void onUpdatePosition(long presentTime, long duration) {
+        Log.i(TAG, "onUpdatePosition: presentTime " + presentTime + " duration  " + duration);
         if (seekBar != null) {
             int dd = (int)(presentTime * seekBar.getMax() / duration);
             seekBar.setProgress(dd);

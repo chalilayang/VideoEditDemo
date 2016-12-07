@@ -101,6 +101,12 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         openVideo();
         requestLayout();
         invalidate();
+        postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                play();
+            }
+        }, 1000);
     }
 
     private void openVideo() {
@@ -136,7 +142,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
 
     public void seek(int progress) {
         if (threadHandler != null && !TextUtils.isEmpty(this.videoFilePath)) {
-            stopPlayBack();
+            stop();
             threadHandler.removeMessages(InnerHandler.MSG_DECODE_FRAME);
             Message message = threadHandler.obtainMessage(InnerHandler.MSG_DECODE_FRAME);
             message.arg1 = progress;
@@ -246,28 +252,29 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     }
 
     public void play() {
+        if (mCurrentState != STATE_PLAYING) {
+            mCurrentState = STATE_PLAYING;
+        }
         if (threadHandler != null) {
-            threadHandler.removeCallbacksAndMessages(null);
             Message msg = threadHandler.obtainMessage(InnerHandler.MSG_PLAY);
             threadHandler.sendMessage(msg);
         }
     }
     public void stop() {
-        if (threadHandler != null) {
-            threadHandler.removeCallbacksAndMessages(null);
-            Message msg = threadHandler.obtainMessage(InnerHandler.MSG_STOP);
-            threadHandler.sendMessage(msg);
+        if (mCurrentState == STATE_PLAYING) {
+            mCurrentState = STATE_SEEKING;
+            if (threadHandler != null) {
+                Message msg = threadHandler.obtainMessage(InnerHandler.MSG_STOP);
+                threadHandler.sendMessage(msg);
+            }
         }
     }
 
     private void startPlayback() {
-        if (mCurrentState != STATE_PLAYING) {
-            mCurrentState = STATE_PLAYING;
-            if (mediaFrameDecoder != null) {
-                mediaFrameDecoder.stop();
-                mediaFrameDecoder.release();
-                mediaFrameDecoder = null;
-            }
+        if (mediaFrameDecoder != null) {
+            mediaFrameDecoder.stop();
+            mediaFrameDecoder.release();
+            mediaFrameDecoder = null;
         }
         try {
             int nTracks = mediaExtractor.getTrackCount();
@@ -329,17 +336,14 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     }
 
     private void stopPlayBack() {
-        if (mCurrentState == STATE_PLAYING) {
-            if (mTimeAnimator != null) {
-                mTimeAnimator.end();
-                mTimeAnimator.cancel();
-                mTimeAnimator = null;
-            }
-            if (mCodecWrapper != null) {
-                mCodecWrapper.stopAndRelease();
-                mCodecWrapper = null;
-            }
-            mCurrentState = STATE_SEEKING;
+        if (mTimeAnimator != null) {
+            mTimeAnimator.end();
+            mTimeAnimator.cancel();
+            mTimeAnimator = null;
+        }
+        if (mCodecWrapper != null) {
+            mCodecWrapper.stopAndRelease();
+            mCodecWrapper = null;
         }
     }
 
@@ -363,33 +367,40 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         mediaExtractor.selectTrack(videoTrackIndex);
         ByteBuffer[] inputBuffers = mediaFrameDecoder.getInputBuffers();
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-        int inIndex = mediaFrameDecoder.dequeueInputBuffer(10000);
-        if (inIndex >= 0) {
-            ByteBuffer buffer = inputBuffers[inIndex];
-            int sampleSize = mediaExtractor.readSampleData(buffer, 0);
-            if (sampleSize < 0) {
-                mediaFrameDecoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec
-                        .BUFFER_FLAG_END_OF_STREAM);
-            } else {
-                mediaFrameDecoder.queueInputBuffer(inIndex, 0, sampleSize, mediaExtractor
-                        .getSampleTime(), 0);
+        for (int index = 0; index < 5; index ++) {
+            int inIndex = mediaFrameDecoder.dequeueInputBuffer(0);
+            if (inIndex >= 0) {
+                ByteBuffer buffer = inputBuffers[inIndex];
+                int sampleSize = mediaExtractor.readSampleData(buffer, 0);
+                if (sampleSize < 0) {
+                    mediaFrameDecoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec
+                            .BUFFER_FLAG_END_OF_STREAM);
+                    break;
+                } else {
+                    mediaFrameDecoder.queueInputBuffer(inIndex, 0, sampleSize, mediaExtractor
+                            .getSampleTime(), 0);
+                }
             }
         }
 
-        int outIndex = mediaFrameDecoder.dequeueOutputBuffer(info, 10000);
-        switch (outIndex) {
-            case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
-                Log.d("DecodeActivity", "INFO_OUTPUT_BUFFERS_CHANGED");
-                break;
-            case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
-                Log.d("DecodeActivity", "New format " + mediaFrameDecoder.getOutputFormat());
-                break;
-            case MediaCodec.INFO_TRY_AGAIN_LATER:
-                Log.d("DecodeActivity", "dequeueOutputBuffer timed out!");
-                break;
-            default:
-                mediaFrameDecoder.releaseOutputBuffer(outIndex, true);
-                break;
+        boolean timeout = false;
+        while (!timeout) {
+            int outIndex = mediaFrameDecoder.dequeueOutputBuffer(info, 0);
+            switch (outIndex) {
+                case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
+                    Log.d("DecodeActivity", "INFO_OUTPUT_BUFFERS_CHANGED");
+                    break;
+                case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
+                    Log.d("DecodeActivity", "New format " + mediaFrameDecoder.getOutputFormat());
+                    break;
+                case MediaCodec.INFO_TRY_AGAIN_LATER:
+                    Log.d("DecodeActivity", "dequeueOutputBuffer timed out!");
+                    timeout = true;
+                    break;
+                default:
+                    mediaFrameDecoder.releaseOutputBuffer(outIndex, true);
+                    break;
+            }
         }
     }
 
