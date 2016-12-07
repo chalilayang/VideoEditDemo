@@ -5,6 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 
@@ -58,11 +59,12 @@ public class MediaCodecPlayer extends AppCompatActivity
             bar.hide();
         }
         videoEditPreView = (VideoEditPreView) findViewById(R.id.preview);
-        videoEditPreView.getLayoutParams().height = screenHeightPx / 3;
+        ((ViewGroup)videoEditPreView.getParent()).getLayoutParams().height = screenHeightPx / 2;
+        ((ViewGroup)videoEditPreView.getParent()).getLayoutParams().width = screenWidthPx;
         seekBar = (SeekBar) findViewById(R.id.seek_bar);
         seekBar.setOnSeekBarChangeListener(this);
         seekBar.setMax(VideoEditPreView.MAX);
-        ((RelativeLayout.LayoutParams) seekBar.getLayoutParams()).topMargin = screenHeightPx / 8;
+        ((RelativeLayout.LayoutParams) seekBar.getLayoutParams()).topMargin = screenHeightPx / 2;
     }
 
     @Override

@@ -274,7 +274,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void startPlayActivity(VideoData video) {
-        Intent intent = new Intent(this, MediaCodecPlayActivity.class);
+        Intent intent = new Intent(this, MediaCodecPlayer.class);
         Bundle bundle = new Bundle();
         bundle.putString(KEY_FILE_NAME, video.fileName);
         bundle.putString(KEY_FILE_PATH, video.filePath);

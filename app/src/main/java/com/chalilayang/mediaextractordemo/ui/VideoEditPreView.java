@@ -1,6 +1,7 @@
 package com.chalilayang.mediaextractordemo.ui;
 
 import android.content.Context;
+import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -11,8 +12,10 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.TextureView;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -21,7 +24,7 @@ import java.nio.ByteBuffer;
  * Created by chalilayang on 2016/12/6.
  */
 
-public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callback {
+public class VideoEditPreView extends TextureView implements TextureView.SurfaceTextureListener {
     private static final String TAG = "VideoEditPreView";
     public static final int MAX = 10000;//Integer.MAX_VALUE;
     private static final int STATE_ERROR              = -1;
@@ -58,8 +61,6 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
     private HandlerThread mHandlerThread;
     InnerHandler threadHandler;
 
-    private SurfaceHolder surfaceHolder;
-
     public VideoEditPreView(Context context) {
         super(context);
         initVideoView();
@@ -78,8 +79,7 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
         Log.i(TAG, "initVideoView: start");
         mVideoWidth = 0;
         mVideoHeight = 0;
-        getHolder().addCallback(this);
-        getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        setSurfaceTextureListener(this);
         setFocusable(true);
         setFocusableInTouchMode(true);
         requestFocus();
@@ -123,7 +123,7 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
                 if (format.containsKey(MediaFormat.KEY_ROTATION)) {
                     videoRotation = format.getInteger(MediaFormat.KEY_ROTATION);
                 }
-//                setRotation(90);
+                setRotation(90);
             } else if (mime.startsWith("audio/")) {
                 this.audioTrackIndex = index;
                 this.audioFormat = format;
@@ -147,70 +147,34 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
         int width = getDefaultSize(mVideoWidth, widthMeasureSpec);
         int height = getDefaultSize(mVideoHeight, heightMeasureSpec);
         if (mVideoWidth > 0 && mVideoHeight > 0) {
-
             int widthSpecMode = MeasureSpec.getMode(widthMeasureSpec);
             int widthSpecSize = MeasureSpec.getSize(widthMeasureSpec);
             int heightSpecMode = MeasureSpec.getMode(heightMeasureSpec);
             int heightSpecSize = MeasureSpec.getSize(heightMeasureSpec);
-
             if (widthSpecMode == MeasureSpec.EXACTLY && heightSpecMode == MeasureSpec.EXACTLY) {
-                // the size is fixed
                 width = widthSpecSize;
                 height = heightSpecSize;
-
-                // for compatibility, we adjust size based on aspect ratio
+                Log.i(TAG, "onMeasure: width " + width + " height " + height);
+                Log.i(TAG, "onMeasure: mVideoWidth " + mVideoWidth + " mVideoHeight " + mVideoHeight);
                 if ( mVideoWidth * height  < width * mVideoHeight ) {
-                    //Log.i("@@@", "image too wide, correcting");
                     width = height * mVideoWidth / mVideoHeight;
                 } else if ( mVideoWidth * height  > width * mVideoHeight ) {
-                    //Log.i("@@@", "image too tall, correcting");
-                    height = width * mVideoHeight / mVideoWidth;
-                }
-            } else if (widthSpecMode == MeasureSpec.EXACTLY) {
-                // only the width is fixed, adjust the height to match aspect ratio if possible
-                width = widthSpecSize;
-                height = width * mVideoHeight / mVideoWidth;
-                if (heightSpecMode == MeasureSpec.AT_MOST && height > heightSpecSize) {
-                    // couldn't match aspect ratio within the constraints
-                    height = heightSpecSize;
-                }
-            } else if (heightSpecMode == MeasureSpec.EXACTLY) {
-                // only the height is fixed, adjust the width to match aspect ratio if possible
-                height = heightSpecSize;
-                width = height * mVideoWidth / mVideoHeight;
-                if (widthSpecMode == MeasureSpec.AT_MOST && width > widthSpecSize) {
-                    // couldn't match aspect ratio within the constraints
-                    width = widthSpecSize;
-                }
-            } else {
-                // neither the width nor the height are fixed, try to use actual video size
-                width = mVideoWidth;
-                height = mVideoHeight;
-                if (heightSpecMode == MeasureSpec.AT_MOST && height > heightSpecSize) {
-                    // too tall, decrease both width and height
-                    height = heightSpecSize;
-                    width = height * mVideoWidth / mVideoHeight;
-                }
-                if (widthSpecMode == MeasureSpec.AT_MOST && width > widthSpecSize) {
-                    // too wide, decrease both width and height
-                    width = widthSpecSize;
                     height = width * mVideoHeight / mVideoWidth;
                 }
             }
-        } else {
-            // no size yet, just adopt the given spec sizes
         }
         setMeasuredDimension(width, height);
+        Log.i(TAG, "onMeasure: measured width " + width + " height " + height);
         Log.i(TAG, "onMeasure: end");
     }
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        surfaceHolder = holder;
+    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
         mSurfaceWidth = width;
         mSurfaceHeight = height;
         boolean isValidState =  (mTargetState == STATE_PLAYING);
@@ -218,10 +182,14 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
     }
 
     @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        surfaceHolder = null;
-        getHolder().removeCallback(this);
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
         release(true);
+        return false;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+
     }
 
     private void release(boolean cleartargetstate) {
@@ -274,8 +242,9 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            this.videoFormat.setInteger(MediaFormat.KEY_ROTATION, 180);
-            mediaFrameDecoder.configure(this.videoFormat, getHolder().getSurface(), null,
+//            setRotation(90);
+//            this.videoFormat.setInteger(MediaFormat.KEY_ROTATION, 90);
+            mediaFrameDecoder.configure(this.videoFormat, new Surface(getSurfaceTexture()), null,
                     0);
             mediaFrameDecoder.start();
         }
