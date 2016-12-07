@@ -178,7 +178,7 @@ public class CaptureActivity extends AppCompatActivity implements View.OnClickLi
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);// 设置音频编码
         mMediaRecorder.setAudioSamplingRate(8000);
         mMediaRecorder.setMaxDuration(100000); // 设置最大时长
-        mMediaRecorder.setOrientationHint(ROTATION_HINT);
+//        mMediaRecorder.setOrientationHint(ROTATION_HINT);
 
 
         // Step 3: Set a CamcorderProfile (requires API Level 8 or higher)

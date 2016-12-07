@@ -19,6 +19,7 @@ package com.chalilayang.mediaextractordemo.Utils.common.media;
 import android.media.*;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Surface;
 
 import java.io.IOException;
@@ -31,6 +32,7 @@ import java.util.Queue;
  */
 public class MediaCodecWrapper {
 
+    private static final String TAG = "MediaCodecWrapper";
     // Handler to use for {@code OutputSampleListener} and {code OutputFormatChangedListener}
     // callbacks
     private Handler mHandler;
@@ -91,10 +93,22 @@ public class MediaCodecWrapper {
      * Releases resources and ends the encoding/decoding session.
      */
     public void stopAndRelease() {
-        mDecoder.stop();
-        mDecoder.release();
-        mDecoder = null;
-        mHandler = null;
+        Log.i(TAG, "stopAndRelease: ");
+        if (mDecoder != null) {
+            mDecoder.stop();
+            mDecoder.release();
+            mDecoder = null;
+        }
+        if (mAvailableInputBuffers != null) {
+            mAvailableInputBuffers.clear();
+        }
+        if (mAvailableOutputBuffers != null) {
+            mAvailableOutputBuffers.clear();
+        }
+        if (mHandler != null) {
+            mHandler.removeCallbacksAndMessages(null);
+            mHandler = null;
+        }
     }
 
     /**
@@ -149,7 +163,6 @@ public class MediaCodecWrapper {
         if (mimeType.contains("video/")) {
             videoCodec = MediaCodec.createDecoderByType(mimeType);
             videoCodec.configure(trackFormat, surface, null,  0);
-
         }
 
         // If codec creation was successful, then create a wrapper object around the
