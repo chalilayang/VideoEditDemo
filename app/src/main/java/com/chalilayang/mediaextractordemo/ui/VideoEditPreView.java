@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -21,7 +22,8 @@ import java.nio.ByteBuffer;
  */
 
 public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callback {
-    private static final int MAX = 10000;//Integer.MAX_VALUE;
+    private static final String TAG = "VideoEditPreView";
+    public static final int MAX = 10000;//Integer.MAX_VALUE;
     private static final int STATE_ERROR              = -1;
     private static final int STATE_IDLE               = 0;
     private static final int STATE_PREPARING          = 1;
@@ -40,6 +42,7 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
     private MediaFormat audioFormat;
     private long mVideoDuration;
     private long mAudioDuration;
+    private int videoRotation = 0;
     private int videoTrackIndex = -1;
     private int audioTrackIndex = -1;
 
@@ -72,6 +75,7 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
         initVideoView();
     }
     private void initVideoView() {
+        Log.i(TAG, "initVideoView: start");
         mVideoWidth = 0;
         mVideoHeight = 0;
         getHolder().addCallback(this);
@@ -82,6 +86,7 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
         mHandlerThread = new HandlerThread(this.getClass().getSimpleName());
         mHandlerThread.start();
         threadHandler = new InnerHandler(mHandlerThread.getLooper());
+        Log.i(TAG, "initVideoView: end");
     }
 
     /**
@@ -115,26 +120,30 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
                 mVideoWidth = format.getInteger(MediaFormat.KEY_WIDTH);
                 mVideoHeight = format.getInteger(MediaFormat.KEY_HEIGHT);
                 mVideoDuration = format.getLong(MediaFormat.KEY_DURATION);
+                if (format.containsKey(MediaFormat.KEY_ROTATION)) {
+                    videoRotation = format.getInteger(MediaFormat.KEY_ROTATION);
+                }
+//                setRotation(90);
             } else if (mime.startsWith("audio/")) {
                 this.audioTrackIndex = index;
                 this.audioFormat = format;
                 mAudioDuration = format.getLong(MediaFormat.KEY_DURATION);
             }
         }
-        mediaExtractor.release();
-        mediaExtractor = null;
     }
 
-    public void seek(long time_ns) {
-        if (threadHandler != null) {
+    public void seek(int progress) {
+        if (threadHandler != null && !TextUtils.isEmpty(this.videoFilePath)) {
             threadHandler.removeMessages(InnerHandler.MSG_DECODE_FRAME);
             Message message = threadHandler.obtainMessage(InnerHandler.MSG_DECODE_FRAME);
+            message.arg1 = progress;
             threadHandler.sendMessage(message);
         }
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        Log.i(TAG, "onMeasure: start");
         int width = getDefaultSize(mVideoWidth, widthMeasureSpec);
         int height = getDefaultSize(mVideoHeight, heightMeasureSpec);
         if (mVideoWidth > 0 && mVideoHeight > 0) {
@@ -192,6 +201,7 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
             // no size yet, just adopt the given spec sizes
         }
         setMeasuredDimension(width, height);
+        Log.i(TAG, "onMeasure: end");
     }
 
     @Override
@@ -210,6 +220,7 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         surfaceHolder = null;
+        getHolder().removeCallback(this);
         release(true);
     }
 
@@ -263,11 +274,14 @@ public class VideoEditPreView extends SurfaceView implements SurfaceHolder.Callb
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            this.videoFormat.setInteger(MediaFormat.KEY_ROTATION, 180);
             mediaFrameDecoder.configure(this.videoFormat, getHolder().getSurface(), null,
                     0);
             mediaFrameDecoder.start();
         }
         mediaExtractor.seekTo(time_ns, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+        mediaExtractor.unselectTrack(audioTrackIndex);
+        mediaExtractor.selectTrack(videoTrackIndex);
         ByteBuffer[] inputBuffers = mediaFrameDecoder.getInputBuffers();
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         int inIndex = mediaFrameDecoder.dequeueInputBuffer(10000);

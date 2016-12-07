@@ -10,14 +10,16 @@
     android:paddingRight="0dp"
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.chalilayang.mediaextractordemo.MediaCodecPlayer">
-    <SurfaceView
-        android:id="@+id/surface_view"
+
+    <com.chalilayang.mediaextractordemo.ui.VideoEditPreView
+        android:id="@+id/preview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_alignParentTop="true"/>
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"/>
     <SeekBar
         android:id="@+id/seek_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/surface_view"/>
+        android:layout_below="@id/preview"/>
 </RelativeLayout>

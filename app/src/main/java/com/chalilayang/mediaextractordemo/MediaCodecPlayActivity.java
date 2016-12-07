@@ -73,6 +73,7 @@ public class MediaCodecPlayActivity extends AppCompatActivity {
         }
         mPlaybackView = (TextureView) findViewById(R.id.texture_view);
         mPlaybackView.getLayoutParams().height = screenHeightPx / 2;
+        mPlaybackView.setRotation(90);
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
