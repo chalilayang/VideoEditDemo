@@ -32,6 +32,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     private static final int STATE_SEEKING          = 1;
     private static final int STATE_PLAYING            = 3;
 
+    private boolean hasGetFirstFrame = false;
     private String videoFilePath;
 
     private WeakReference<onPlayBackPositionUpdateListener> playBackListenerWeakRef;
@@ -79,6 +80,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     }
     private void initVideoView() {
         Log.i(TAG, "initVideoView: start");
+        hasGetFirstFrame = false;
         mVideoWidth = 0;
         mVideoHeight = 0;
         setSurfaceTextureListener(this);
@@ -104,9 +106,9 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         postDelayed(new Runnable() {
             @Override
             public void run() {
-                play();
+                seek(0);
             }
-        }, 1000);
+        }, 100);
     }
 
     private void openVideo() {
@@ -368,7 +370,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         ByteBuffer[] inputBuffers = mediaFrameDecoder.getInputBuffers();
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         for (int index = 0; index < 5; index ++) {
-            int inIndex = mediaFrameDecoder.dequeueInputBuffer(0);
+            int inIndex = mediaFrameDecoder.dequeueInputBuffer(hasGetFirstFrame?0:500000);
             if (inIndex >= 0) {
                 ByteBuffer buffer = inputBuffers[inIndex];
                 int sampleSize = mediaExtractor.readSampleData(buffer, 0);
@@ -385,22 +387,26 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
 
         boolean timeout = false;
         while (!timeout) {
-            int outIndex = mediaFrameDecoder.dequeueOutputBuffer(info, 0);
+            int outIndex = mediaFrameDecoder.dequeueOutputBuffer(info, hasGetFirstFrame?0:500000);
             switch (outIndex) {
                 case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
-                    Log.d("DecodeActivity", "INFO_OUTPUT_BUFFERS_CHANGED");
+                    Log.i("DecodeActivity", "INFO_OUTPUT_BUFFERS_CHANGED");
                     break;
                 case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
-                    Log.d("DecodeActivity", "New format " + mediaFrameDecoder.getOutputFormat());
+                    Log.i("DecodeActivity", "New format " + mediaFrameDecoder.getOutputFormat());
                     break;
                 case MediaCodec.INFO_TRY_AGAIN_LATER:
-                    Log.d("DecodeActivity", "dequeueOutputBuffer timed out!");
+                    Log.i("DecodeActivity", "dequeueOutputBuffer timed out!");
                     timeout = true;
                     break;
                 default:
+                    Log.i("DecodeActivity", "releaseOutputBuffer " + outIndex);
                     mediaFrameDecoder.releaseOutputBuffer(outIndex, true);
                     break;
             }
+        }
+        if (!hasGetFirstFrame) {
+            hasGetFirstFrame = true;
         }
     }
 
