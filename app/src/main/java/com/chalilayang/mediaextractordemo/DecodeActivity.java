@@ -1,12 +1,17 @@
 package com.chalilayang.mediaextractordemo;
 
+import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.net.Uri;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -17,12 +22,15 @@ import android.view.SurfaceView;
 import com.chalilayang.mediaextractordemo.Utils.audio.MP3RadioStreamPlayer;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
 
 public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
-    private static final String SAMPLE = Environment.getExternalStorageDirectory() + "/video.mp4";
+    private static final String TAG = "DecodeActivity";
     private VideoDecodeThread videoPlayer = null;
     private AudioDecodeThread audioPlayer = null;
     private VideoData videoToPlay;
@@ -46,12 +54,33 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
             e.printStackTrace();
         }
     }
+    public static String getVideoPath(Context context, Uri uri) {
+        Uri videopathURI = uri;
+        if (uri.getScheme().toString().compareTo("content") == 0) {
+            Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+            if (cursor.moveToFirst()) {
+                int column_index = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
+                videopathURI = Uri.parse(cursor.getString(column_index));
+                return videopathURI.getPath();
+            }
+        } else if (uri.getScheme().compareTo("file") == 0) {
+            return videopathURI.getPath();
+        }
 
+        return videopathURI.toString();
+    }
     private void stop()
     {
         player.stop();
     }
     private void initData() {
+        Intent intent = getIntent();
+        if (intent.getAction() != null &&
+                Intent.ACTION_VIEW.equals(intent.getAction())) {
+            String path = getVideoPath(getApplicationContext(), intent.getData());
+            String name = path.substring(path.lastIndexOf(File.separator));
+            videoToPlay = new VideoData(path, name);
+        }
         Bundle b = getIntent().getExtras();
         if (b != null) {
             String name = b.getString(MainActivity.KEY_FILE_NAME);
@@ -97,6 +126,7 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
         }
 //        stop();
         if (audioPlayer != null) {
+            audioPlayer.stopPlay();
             audioPlayer.interrupt();
         }
     }
@@ -214,6 +244,10 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
         private MediaCodec audioDecoder;
         private AudioTrack audioTrack;
 
+        public void stopPlay() {
+            audioTrack.stop();
+            audioTrack.release();
+        }
         @Override
         public void run() {
             ByteBuffer[] codecInputBuffers;
@@ -246,10 +280,9 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
             codecInputBuffers = audioDecoder.getInputBuffers();
             codecOutputBuffers = audioDecoder.getOutputBuffers();
 
-            // get the sample rate to configure AudioTrack
             int sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
-
-            // create our AudioTrack instance
+            int channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+            Log.i(TAG, "run: channelCount " + channelCount);
             audioTrack = new AudioTrack(
                     AudioManager.STREAM_MUSIC,
                     sampleRate,
@@ -263,10 +296,7 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
                     AudioTrack.MODE_STREAM
             );
 
-            // start playing, we will feed you later
             audioTrack.play();
-
-            // start decoding
             final long kTimeOutUs = 10000;
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             boolean sawInputEOS = false;
@@ -274,34 +304,25 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
             int noOutputCounter = 0;
             int noOutputCounterLimit = 50;
 
-
             while (!sawOutputEOS && noOutputCounter < noOutputCounterLimit) {
                 if (!sawInputEOS) {
                     int inputBufIndex = audioDecoder.dequeueInputBuffer(kTimeOutUs);
                     if (inputBufIndex >= 0) {
                         ByteBuffer dstBuf = codecInputBuffers[inputBufIndex];
-
-                        int sampleSize =
-                                audioExtractor.readSampleData(dstBuf, 0 /* offset */);
-
+                        int sampleSize = audioExtractor.readSampleData(dstBuf, 0);
                         long presentationTimeUs = 0;
-
                         if (sampleSize < 0) {
                             sawInputEOS = true;
                             sampleSize = 0;
                         } else {
                             presentationTimeUs = audioExtractor.getSampleTime();
                         }
-
                         audioDecoder.queueInputBuffer(
                                 inputBufIndex,
-                                0 /* offset */,
+                                0,
                                 sampleSize,
                                 presentationTimeUs,
                                 sawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
-
-
-
                         if (!sawInputEOS) {
                             audioExtractor.advance();
                         }
@@ -309,7 +330,6 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
                 }
 
                 int res = audioDecoder.dequeueOutputBuffer(info, kTimeOutUs);
-
                 if (res >= 0) {
                     if (info.size > 0) {
                         noOutputCounter = 0;
@@ -323,7 +343,7 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
                     if(chunk.length > 0){
                         audioTrack.write(chunk,0,chunk.length);
                     }
-                    audioDecoder.releaseOutputBuffer(outputBufIndex, false /* render */);
+                    audioDecoder.releaseOutputBuffer(outputBufIndex, false);
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                         sawOutputEOS = true;
                     }
@@ -331,12 +351,26 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
                     codecOutputBuffers = audioDecoder.getOutputBuffers();
                 } else if (res == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     MediaFormat oformat = audioDecoder.getOutputFormat();
+                    int cc = oformat.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+                    Log.i(TAG, "INFO_OUTPUT_FORMAT_CHANGED cc " + cc);
                 }
             }
-
-            if(sawOutputEOS) {
-                audioTrack.play();
-            }
         }
+    }
+
+    short[] getSamplesForChannel(MediaCodec codec, int bufferId, int channelIx) {
+        ByteBuffer[] outputBuffers = codec.getOutputBuffers();
+        ByteBuffer outputBuffer = outputBuffers[bufferId];
+        MediaFormat format = codec.getOutputFormat();
+        ShortBuffer samples = outputBuffer.order(ByteOrder.nativeOrder()).asShortBuffer();
+        int numChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+        if (channelIx < 0 || channelIx >= numChannels) {
+            return null;
+        }
+        short[] res = new short[samples.remaining() / numChannels];
+        for (int i = 0; i < res.length; ++i) {
+            res[i] = samples.get(i * numChannels + channelIx);
+        }
+        return res;
     }
 }

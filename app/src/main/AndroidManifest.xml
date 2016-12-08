@@ -57,8 +57,21 @@
                     android:scheme="file"/>
             </intent-filter>
         </activity>
-        <activity android:name=".DecodeActivity"
-                  android:screenOrientation="portrait">
+        <activity
+            android:name=".DecodeActivity"
+            android:label="decode"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+
+                <data
+                    android:host="*"
+                    android:mimeType="video/mp4"
+                    android:pathPattern=".*\\.mp4"
+                    android:scheme="file"/>
+            </intent-filter>
         </activity>
 
         <service
@@ -74,8 +87,21 @@
             android:process=":remote">
         </service>
 
-        <activity android:name=".MediaCodecPlayer"
-                  android:screenOrientation="portrait">
+        <activity
+            android:name=".MediaCodecPlayer"
+            android:label="MediaCodecPlayer"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+
+                <data
+                    android:host="*"
+                    android:mimeType="video/mp4"
+                    android:pathPattern=".*\\.mp4"
+                    android:scheme="file"/>
+            </intent-filter>
         </activity>
         <activity
             android:name=".MediaCodecPlayActivity"

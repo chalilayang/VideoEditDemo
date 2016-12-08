@@ -28,15 +28,20 @@ import java.nio.ByteBuffer;
 public class VideoEditPreView extends TextureView implements TextureView.SurfaceTextureListener {
     private static final String TAG = "VideoEditPreView";
     public static final int MAX = 10000;//Integer.MAX_VALUE;
+    private static final int STATE_ERROR = 0;
     private static final int STATE_SEEKING = 1;
     private static final int STATE_PAUSE = 2;
     private static final int STATE_PLAYING = 3;
     private static final int STATE_PLAY_COMPLETE = 4;
 
+    private int error_code = -1;
+    private String errorMessage = null;
+    public static final int ERROR_CODE_DECODE_START_FAILED = 1;
+
     private boolean hasGetFirstFrame = false;
     private String videoFilePath;
 
-    private onPlayBackPositionUpdateListener playBackListener;
+    private onPlayBacKListener playBackListener;
 
     private int mVideoWidth;
     private int mVideoHeight;
@@ -113,6 +118,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     }
 
     private void openVideo() {
+        Log.i(TAG, "openVideo: ");
         mediaExtractor = new MediaExtractor();
         try {
             mediaExtractor.setDataSource(videoFilePath);
@@ -134,16 +140,17 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                 if (format.containsKey(MediaFormat.KEY_ROTATION)) {
                     videoRotation = format.getInteger(MediaFormat.KEY_ROTATION);
                 }
-                setRotation(90);
+                setRotation(videoRotation);
             } else if (mime.startsWith("audio/")) {
                 this.audioTrackIndex = index;
                 this.audioFormat = format;
                 mAudioDuration = format.getLong(MediaFormat.KEY_DURATION);
             }
         }
+        Log.i(TAG, "openVideo: vide size " + mVideoWidth + "x" + mVideoWidth);
     }
 
-    public void setOnPlayBackPositionListener(onPlayBackPositionUpdateListener lis) {
+    public void setOnPlayBackPositionListener(onPlayBacKListener lis) {
         if (lis != null) {
             this.playBackListener = lis;
         }
@@ -216,10 +223,12 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         }
     }
 
+
     private class InnerHandler extends Handler {
         private static final int MSG_DECODE_FRAME = 229;
         private static final int MSG_PLAY = 230;
         private static final int MSG_STOP = 231;
+        private static final int MSG_ERROR = 232;
         public InnerHandler(Looper looper) {
             super(looper);
         }
@@ -238,6 +247,13 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                     break;
                 case MSG_STOP:
                     stopPlayBack();
+                    break;
+                case MSG_ERROR:
+                    mCurrentState = STATE_ERROR;
+                    error_code = ERROR_CODE_DECODE_START_FAILED;
+                    if (playBackListener != null) {
+                        playBackListener.onError(error_code, errorMessage);
+                    }
                     break;
             }
         }
@@ -287,7 +303,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     }
 
     private void startPlayback() {
-        Log.i(TAG, "startPlayback: tid:" + Process.myTid());
+        Log.i(TAG, "startPlayback");
         if (mediaFrameDecoder != null) {
             mediaFrameDecoder.stop();
             mediaFrameDecoder.release();
@@ -383,10 +399,18 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
             try {
                 mediaFrameDecoder = MediaCodec.createDecoderByType(mime);
             } catch (IOException e) {
+                Log.i(TAG, "decodeFrame: IOException " + e.getMessage());
                 e.printStackTrace();
             }
             mediaFrameDecoder.configure(this.videoFormat, this.surface, null, 0);
-            mediaFrameDecoder.start();
+            try {
+                mediaFrameDecoder.start();
+            } catch (Exception e) {
+                errorMessage = e.getMessage();
+                e.printStackTrace();
+                threadHandler.obtainMessage(InnerHandler.MSG_ERROR).sendToTarget();
+                return;
+            }
         }
         mediaExtractor.seekTo(time_ns, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
         mediaExtractor.unselectTrack(audioTrackIndex);
@@ -436,7 +460,8 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         }
     }
 
-    public interface onPlayBackPositionUpdateListener {
+    public interface onPlayBacKListener {
         void onUpdatePosition(long presentTime, long duration);
+        void onError(int error, String message);
     }
 }
