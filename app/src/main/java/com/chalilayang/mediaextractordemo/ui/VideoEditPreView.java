@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.Process;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
@@ -260,7 +261,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     }
 
     public void play() {
-        Log.i(TAG, "play: ");
+        Log.i(TAG, "play: tid:" + Process.myTid());
         if (mCurrentState != STATE_PLAYING) {
             if (mCurrentState == STATE_PLAY_COMPLETE) {
                 currentPlayPosition_ns = 0;
@@ -286,6 +287,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     }
 
     private void startPlayback() {
+        Log.i(TAG, "startPlayback: tid:" + Process.myTid());
         if (mediaFrameDecoder != null) {
             mediaFrameDecoder.stop();
             mediaFrameDecoder.release();
@@ -313,6 +315,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                     if (mCurrentState != STATE_PLAYING) {
                         return;
                     }
+                    Log.i(TAG, "onTimeUpdate tid:" + Process.myTid());
                     boolean isEos = ((mediaExtractor.getSampleFlags() & MediaCodec
                             .BUFFER_FLAG_END_OF_STREAM) == MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     if (!isEos) {
@@ -336,7 +339,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                             currentPlayPosition_ns = out_bufferInfo.presentationTimeUs;
                             if (currentPlayPosition_ns >= startPlayPosition_ns) {
                                 mCodecWrapper.popSample(true);
-                                Log.i(TAG, "onTimeUpdate: " + currentPlayPosition_ns);
+//                                Log.i(TAG, "onTimeUpdate: " + currentPlayPosition_ns);
                                 if (playBackListener != null) {
                                     playBackListener.onUpdatePosition(currentPlayPosition_ns,
                                             mVideoDuration

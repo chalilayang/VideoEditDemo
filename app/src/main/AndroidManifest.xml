@@ -32,6 +32,7 @@
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"
+            android:screenOrientation="portrait"
             android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -42,6 +43,7 @@
         <activity
             android:name=".VideoEditActivity"
             android:label="@string/title_activity_video_edit"
+            android:screenOrientation="portrait"
             android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
@@ -55,7 +57,8 @@
                     android:scheme="file"/>
             </intent-filter>
         </activity>
-        <activity android:name=".DecodeActivity">
+        <activity android:name=".DecodeActivity"
+                  android:screenOrientation="portrait">
         </activity>
 
         <service
@@ -77,6 +80,7 @@
         <activity
             android:name=".MediaCodecPlayActivity"
             android:label="@string/title_activity_media_codec_play"
+            android:screenOrientation="portrait"
             android:theme="@style/AppTheme.NoActionBar">
         </activity>
     </application>
