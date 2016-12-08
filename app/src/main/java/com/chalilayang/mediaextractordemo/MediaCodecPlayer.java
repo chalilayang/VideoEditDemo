@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 
@@ -55,7 +54,6 @@ public class MediaCodecPlayer extends AppCompatActivity
         Log.i("displayMetrics", mDisplayMetrics.toString());
     }
 
-    boolean isPlaying = false;
     private void initView() {
         Log.i(TAG, "initView: ");
         ActionBar bar = getSupportActionBar();
@@ -70,12 +68,11 @@ public class MediaCodecPlayer extends AppCompatActivity
         preViewContainer.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                boolean isPlaying = videoEditPreView.isPlaying();
                 if (!isPlaying) {
                     videoEditPreView.play();
-                    isPlaying = true;
                 } else {
-                    videoEditPreView.stop();
-                    isPlaying = false;
+                    videoEditPreView.pause();
                 }
             }
         });

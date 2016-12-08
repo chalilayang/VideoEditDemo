@@ -11,4 +11,9 @@
         android:orderInCategory="100"
         android:title="@string/action_delete_video"
         app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_preview"
+        android:orderInCategory="100"
+        android:title="@string/action_edit_preview"
+        app:showAsAction="never"/>
 </menu>

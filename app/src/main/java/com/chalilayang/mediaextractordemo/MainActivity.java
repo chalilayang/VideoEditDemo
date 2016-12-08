@@ -259,6 +259,14 @@ public class MainActivity extends AppCompatActivity
                     videosAdapter.removeVideo(selecttion);
                     return true;
                 }
+            case R.id.action_preview:
+                if (selecttion >= 0
+                        && videoDatas != null
+                        && videoDatas.size() > selecttion) {
+                    VideoData video = videoDatas.get(selecttion);
+                    startPreViewActivity(video);
+                    return true;
+                }
 
         }
         return false;
@@ -273,8 +281,17 @@ public class MainActivity extends AppCompatActivity
         startActivity(intent);
     }
 
-    private void startPlayActivity(VideoData video) {
+    private void startPreViewActivity(VideoData video) {
         Intent intent = new Intent(this, MediaCodecPlayer.class);
+        Bundle bundle = new Bundle();
+        bundle.putString(KEY_FILE_NAME, video.fileName);
+        bundle.putString(KEY_FILE_PATH, video.filePath);
+        intent.putExtras(bundle);
+        startActivity(intent);
+    }
+
+    private void startPlayActivity(VideoData video) {
+        Intent intent = new Intent(this, DecodeActivity.class);
         Bundle bundle = new Bundle();
         bundle.putString(KEY_FILE_NAME, video.fileName);
         bundle.putString(KEY_FILE_PATH, video.filePath);

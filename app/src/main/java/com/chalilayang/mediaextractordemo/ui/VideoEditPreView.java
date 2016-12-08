@@ -10,7 +10,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
@@ -19,7 +18,6 @@ import android.view.TextureView;
 import com.chalilayang.mediaextractordemo.Utils.common.media.MediaCodecWrapper;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 
 /**
@@ -29,13 +27,15 @@ import java.nio.ByteBuffer;
 public class VideoEditPreView extends TextureView implements TextureView.SurfaceTextureListener {
     private static final String TAG = "VideoEditPreView";
     public static final int MAX = 10000;//Integer.MAX_VALUE;
-    private static final int STATE_SEEKING          = 1;
-    private static final int STATE_PLAYING            = 3;
+    private static final int STATE_SEEKING = 1;
+    private static final int STATE_PAUSE = 2;
+    private static final int STATE_PLAYING = 3;
+    private static final int STATE_PLAY_COMPLETE = 4;
 
     private boolean hasGetFirstFrame = false;
     private String videoFilePath;
 
-    private WeakReference<onPlayBackPositionUpdateListener> playBackListenerWeakRef;
+    private onPlayBackPositionUpdateListener playBackListener;
 
     private int mVideoWidth;
     private int mVideoHeight;
@@ -142,20 +142,9 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         }
     }
 
-    public void seek(int progress) {
-        if (threadHandler != null && !TextUtils.isEmpty(this.videoFilePath)) {
-            stop();
-            threadHandler.removeMessages(InnerHandler.MSG_DECODE_FRAME);
-            Message message = threadHandler.obtainMessage(InnerHandler.MSG_DECODE_FRAME);
-            message.arg1 = progress;
-            threadHandler.sendMessage(message);
-        }
-    }
-
-
     public void setOnPlayBackPositionListener(onPlayBackPositionUpdateListener lis) {
         if (lis != null) {
-            this.playBackListenerWeakRef = new WeakReference<onPlayBackPositionUpdateListener>(lis);
+            this.playBackListener = lis;
         }
     }
 
@@ -240,7 +229,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                 case MSG_DECODE_FRAME:
                     double rate = msg.arg1 * 1.0 / MAX;
                     long time = (long) (mVideoDuration * rate * 1.0);
-                    startPlayPosition_ns = time;
+                    currentPlayPosition_ns = time;
                     decodeFrame(time);
                     break;
                 case MSG_PLAY:
@@ -253,19 +242,43 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         }
     }
 
-    public void play() {
-        if (mCurrentState != STATE_PLAYING) {
-            mCurrentState = STATE_PLAYING;
+    public boolean isPlaying() {
+        return mCurrentState == STATE_PLAYING;
+    }
+    public void seek(int progress) {
+        Log.i(TAG, "seek: ");
+        if (mCurrentState != STATE_SEEKING) {
+            pause();
+            mCurrentState = STATE_SEEKING;
         }
         if (threadHandler != null) {
-            Message msg = threadHandler.obtainMessage(InnerHandler.MSG_PLAY);
-            threadHandler.sendMessage(msg);
+            threadHandler.removeMessages(InnerHandler.MSG_DECODE_FRAME);
+            Message message = threadHandler.obtainMessage(InnerHandler.MSG_DECODE_FRAME);
+            message.arg1 = progress;
+            threadHandler.sendMessage(message);
         }
     }
-    public void stop() {
-        if (mCurrentState == STATE_PLAYING) {
-            mCurrentState = STATE_SEEKING;
+
+    public void play() {
+        Log.i(TAG, "play: ");
+        if (mCurrentState != STATE_PLAYING) {
+            if (mCurrentState == STATE_PLAY_COMPLETE) {
+                currentPlayPosition_ns = 0;
+            }
+            mCurrentState = STATE_PLAYING;
             if (threadHandler != null) {
+                threadHandler.removeMessages(InnerHandler.MSG_STOP);
+                Message msg = threadHandler.obtainMessage(InnerHandler.MSG_PLAY);
+                threadHandler.sendMessage(msg);
+            }
+        }
+    }
+    public void pause() {
+        Log.i(TAG, "pause: ");
+        if (mCurrentState == STATE_PLAYING || mCurrentState == STATE_SEEKING) {
+            mCurrentState = STATE_PAUSE;
+            if (threadHandler != null) {
+                threadHandler.removeMessages(InnerHandler.MSG_PLAY);
                 Message msg = threadHandler.obtainMessage(InnerHandler.MSG_STOP);
                 threadHandler.sendMessage(msg);
             }
@@ -288,9 +301,10 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                 mediaExtractor.selectTrack(videoTrackIndex);
             }
             if (mTimeAnimator == null) {
+                Log.i(TAG, "startPlayback: mTimeAnimator == null");
                 mTimeAnimator = new TimeAnimator();
             }
-
+            mTimeAnimator.setCurrentPlayTime(0);
             mTimeAnimator.setTimeListener(new TimeAnimator.TimeListener() {
                 @Override
                 public void onTimeUpdate(final TimeAnimator animation,
@@ -304,7 +318,6 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                     if (!isEos) {
                         boolean result = mCodecWrapper.writeSample(mediaExtractor, false,
                                 mediaExtractor.getSampleTime(), mediaExtractor.getSampleFlags());
-
                         if (result) {
                             mediaExtractor.advance();
                         }
@@ -313,24 +326,32 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                     mCodecWrapper.peekSample(out_bufferInfo);
 
                     if (out_bufferInfo.size <= 0 && isEos) {
+                        Log.i(TAG, "onTimeUpdate: isEos ");
                         mTimeAnimator.end();
                         mCodecWrapper.stopAndRelease();
+                        mCurrentState = STATE_PLAY_COMPLETE;
                     } else {
                         long elapseTime = out_bufferInfo.presentationTimeUs - startPlayPosition_ns;
                         if (elapseTime / 1000 < totalTime) {
-                            mCodecWrapper.popSample(true);
                             currentPlayPosition_ns = out_bufferInfo.presentationTimeUs;
-                            if (playBackListenerWeakRef.get() != null) {
-                                playBackListenerWeakRef.get().onUpdatePosition(
-                                        out_bufferInfo.presentationTimeUs, mVideoDuration
-                                );
+                            if (currentPlayPosition_ns >= startPlayPosition_ns) {
+                                mCodecWrapper.popSample(true);
+                                Log.i(TAG, "onTimeUpdate: " + currentPlayPosition_ns);
+                                if (playBackListener != null) {
+                                    playBackListener.onUpdatePosition(currentPlayPosition_ns,
+                                            mVideoDuration
+                                    );
+                                }
+                            } else {
+                                mCodecWrapper.popSample(false);
                             }
                         }
                     }
                 }
             });
+            Log.i(TAG, "startPlayback: startPlayPosition_ns " + startPlayPosition_ns);
             startPlayPosition_ns = currentPlayPosition_ns;
-            mediaExtractor.seekTo(currentPlayPosition_ns, MediaExtractor.SEEK_TO_NEXT_SYNC);
+            mediaExtractor.seekTo(startPlayPosition_ns, MediaExtractor.SEEK_TO_NEXT_SYNC);
             mTimeAnimator.start();
         } catch (IOException e) {
             e.printStackTrace();
@@ -369,8 +390,10 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         mediaExtractor.selectTrack(videoTrackIndex);
         ByteBuffer[] inputBuffers = mediaFrameDecoder.getInputBuffers();
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-        for (int index = 0; index < 5; index ++) {
-            int inIndex = mediaFrameDecoder.dequeueInputBuffer(hasGetFirstFrame?0:500000);
+        int retryCount = hasGetFirstFrame ? 1:5;
+        long timeout_ns = hasGetFirstFrame?20000:500000;
+        for (int index = 0; index < retryCount; index ++) {
+            int inIndex = mediaFrameDecoder.dequeueInputBuffer(timeout_ns);
             if (inIndex >= 0) {
                 ByteBuffer buffer = inputBuffers[inIndex];
                 int sampleSize = mediaExtractor.readSampleData(buffer, 0);
@@ -387,20 +410,20 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
 
         boolean timeout = false;
         while (!timeout) {
-            int outIndex = mediaFrameDecoder.dequeueOutputBuffer(info, hasGetFirstFrame?0:500000);
+            int outIndex = mediaFrameDecoder.dequeueOutputBuffer(info, timeout_ns);
             switch (outIndex) {
                 case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
-                    Log.i("DecodeActivity", "INFO_OUTPUT_BUFFERS_CHANGED");
+                    Log.i(TAG, "INFO_OUTPUT_BUFFERS_CHANGED");
                     break;
                 case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
-                    Log.i("DecodeActivity", "New format " + mediaFrameDecoder.getOutputFormat());
+                    Log.i(TAG, "New format " + mediaFrameDecoder.getOutputFormat());
                     break;
                 case MediaCodec.INFO_TRY_AGAIN_LATER:
-                    Log.i("DecodeActivity", "dequeueOutputBuffer timed out!");
+                    Log.i(TAG, "dequeueOutputBuffer timed out!");
                     timeout = true;
                     break;
                 default:
-                    Log.i("DecodeActivity", "releaseOutputBuffer " + outIndex);
+                    Log.i(TAG, "releaseOutputBuffer " + outIndex);
                     mediaFrameDecoder.releaseOutputBuffer(outIndex, true);
                     break;
             }

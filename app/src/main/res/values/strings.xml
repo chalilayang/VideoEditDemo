@@ -7,7 +7,7 @@
 
     <string name="action_edit_video">编辑</string>
     <string name="action_delete_video">删除</string>
-
+    <string name="action_edit_preview">编辑预览</string>
     <string name="title_activity_video_edit">视频编辑</string>
 
     <string name="video_edit_name">视频名称：</string>

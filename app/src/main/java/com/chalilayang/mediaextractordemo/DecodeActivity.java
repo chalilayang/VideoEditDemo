@@ -210,8 +210,8 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
     }
 
     private class AudioDecodeThread extends Thread {
-        private MediaExtractor extractor;
-        private MediaCodec decoder;
+        private MediaExtractor audioExtractor;
+        private MediaCodec audioDecoder;
         private AudioTrack audioTrack;
 
         @Override
@@ -219,33 +219,32 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
             ByteBuffer[] codecInputBuffers;
             ByteBuffer[] codecOutputBuffers;
 
-            extractor = new MediaExtractor();
+            audioExtractor = new MediaExtractor();
             try {
-                extractor.setDataSource(videoToPlay.filePath);
+                audioExtractor.setDataSource(videoToPlay.filePath);
             } catch (Exception e) {
                 return;
             }
             MediaFormat format = null;
             String mime = null;
-            for (int i = 0; i < extractor.getTrackCount(); i++) {
-                format = extractor.getTrackFormat(i);
+            for (int i = 0; i < audioExtractor.getTrackCount(); i++) {
+                format = audioExtractor.getTrackFormat(i);
                 mime = format.getString(MediaFormat.KEY_MIME);
                 if (mime.startsWith("audio/")) {
-                    extractor.selectTrack(i);
+                    audioExtractor.selectTrack(i);
                     break;
                 }
             }
 
-            // the actual decoder
             try {
-                decoder = MediaCodec.createDecoderByType(mime);
+                audioDecoder = MediaCodec.createDecoderByType(mime);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            decoder.configure(format, null, null, 0);
-            decoder.start();
-            codecInputBuffers = decoder.getInputBuffers();
-            codecOutputBuffers = decoder.getOutputBuffers();
+            audioDecoder.configure(format, null, null, 0);
+            audioDecoder.start();
+            codecInputBuffers = audioDecoder.getInputBuffers();
+            codecOutputBuffers = audioDecoder.getOutputBuffers();
 
             // get the sample rate to configure AudioTrack
             int sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
@@ -278,12 +277,12 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
 
             while (!sawOutputEOS && noOutputCounter < noOutputCounterLimit) {
                 if (!sawInputEOS) {
-                    int inputBufIndex = decoder.dequeueInputBuffer(kTimeOutUs);
+                    int inputBufIndex = audioDecoder.dequeueInputBuffer(kTimeOutUs);
                     if (inputBufIndex >= 0) {
                         ByteBuffer dstBuf = codecInputBuffers[inputBufIndex];
 
                         int sampleSize =
-                                extractor.readSampleData(dstBuf, 0 /* offset */);
+                                audioExtractor.readSampleData(dstBuf, 0 /* offset */);
 
                         long presentationTimeUs = 0;
 
@@ -291,10 +290,10 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
                             sawInputEOS = true;
                             sampleSize = 0;
                         } else {
-                            presentationTimeUs = extractor.getSampleTime();
+                            presentationTimeUs = audioExtractor.getSampleTime();
                         }
 
-                        decoder.queueInputBuffer(
+                        audioDecoder.queueInputBuffer(
                                 inputBufIndex,
                                 0 /* offset */,
                                 sampleSize,
@@ -304,12 +303,12 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
 
 
                         if (!sawInputEOS) {
-                            extractor.advance();
+                            audioExtractor.advance();
                         }
                     }
                 }
 
-                int res = decoder.dequeueOutputBuffer(info, kTimeOutUs);
+                int res = audioDecoder.dequeueOutputBuffer(info, kTimeOutUs);
 
                 if (res >= 0) {
                     if (info.size > 0) {
@@ -324,14 +323,14 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
                     if(chunk.length > 0){
                         audioTrack.write(chunk,0,chunk.length);
                     }
-                    decoder.releaseOutputBuffer(outputBufIndex, false /* render */);
+                    audioDecoder.releaseOutputBuffer(outputBufIndex, false /* render */);
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                         sawOutputEOS = true;
                     }
                 } else if (res == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                    codecOutputBuffers = decoder.getOutputBuffers();
+                    codecOutputBuffers = audioDecoder.getOutputBuffers();
                 } else if (res == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    MediaFormat oformat = decoder.getOutputFormat();
+                    MediaFormat oformat = audioDecoder.getOutputFormat();
                 }
             }
 
