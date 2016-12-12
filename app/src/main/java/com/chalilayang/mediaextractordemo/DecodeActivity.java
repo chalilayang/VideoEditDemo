@@ -357,20 +357,4 @@ public class DecodeActivity extends AppCompatActivity implements SurfaceHolder.C
             }
         }
     }
-
-    short[] getSamplesForChannel(MediaCodec codec, int bufferId, int channelIx) {
-        ByteBuffer[] outputBuffers = codec.getOutputBuffers();
-        ByteBuffer outputBuffer = outputBuffers[bufferId];
-        MediaFormat format = codec.getOutputFormat();
-        ShortBuffer samples = outputBuffer.order(ByteOrder.nativeOrder()).asShortBuffer();
-        int numChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
-        if (channelIx < 0 || channelIx >= numChannels) {
-            return null;
-        }
-        short[] res = new short[samples.remaining() / numChannels];
-        for (int i = 0; i < res.length; ++i) {
-            res[i] = samples.get(i * numChannels + channelIx);
-        }
-        return res;
-    }
 }

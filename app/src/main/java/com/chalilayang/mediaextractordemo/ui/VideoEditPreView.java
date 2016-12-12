@@ -16,6 +16,7 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
 
+import com.chalilayang.mediaextractordemo.Utils.common.audioplayer.PreviewAudioPlayer;
 import com.chalilayang.mediaextractordemo.Utils.common.media.MediaCodecWrapper;
 
 import java.io.IOException;
@@ -62,6 +63,8 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     private int mSurfaceHeight;
 
     private Surface surface;
+
+    PreviewAudioPlayer previewAudioPlayer;
 
     private int mCurrentState = STATE_SEEKING;
 
@@ -147,7 +150,9 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                 mAudioDuration = format.getLong(MediaFormat.KEY_DURATION);
             }
         }
-        Log.i(TAG, "openVideo: vide size " + mVideoWidth + "x" + mVideoWidth);
+        previewAudioPlayer = new PreviewAudioPlayer();
+        previewAudioPlayer.openAudio(videoFilePath);
+        Log.i(TAG, "openVideo: vide size " + mVideoWidth + "x" + mVideoHeight);
     }
 
     public void setOnPlayBackPositionListener(onPlayBacKListener lis) {
@@ -160,16 +165,17 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int width = getDefaultSize(mVideoWidth, widthMeasureSpec);
         int height = getDefaultSize(mVideoHeight, heightMeasureSpec);
+        Log.i(TAG, "onMeasure: mVideoWidth " + mVideoWidth + " mVideoHeight " + mVideoHeight);
         if (mVideoWidth > 0 && mVideoHeight > 0) {
             int widthSpecMode = MeasureSpec.getMode(widthMeasureSpec);
             int widthSpecSize = MeasureSpec.getSize(widthMeasureSpec);
             int heightSpecMode = MeasureSpec.getMode(heightMeasureSpec);
             int heightSpecSize = MeasureSpec.getSize(heightMeasureSpec);
+            Log.i(TAG, "onMeasure: widthSpecMode " + widthSpecMode + " heightSpecMode " + heightSpecMode);
             if (widthSpecMode == MeasureSpec.EXACTLY && heightSpecMode == MeasureSpec.EXACTLY) {
                 width = widthSpecSize;
                 height = heightSpecSize;
                 Log.i(TAG, "onMeasure: width " + width + " height " + height);
-                Log.i(TAG, "onMeasure: mVideoWidth " + mVideoWidth + " mVideoHeight " + mVideoHeight);
                 if ( mVideoWidth * height  < width * mVideoHeight ) {
                     width = height * mVideoWidth / mVideoHeight;
                 } else if ( mVideoWidth * height  > width * mVideoHeight ) {
@@ -194,7 +200,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        release(true);
+        release();
         return false;
     }
 
@@ -203,7 +209,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
 
     }
 
-    private void release(boolean cleartargetstate) {
+    private void release() {
         if (mHandlerThread != null) {
             mHandlerThread.quit();
             mHandlerThread = null;
@@ -220,6 +226,9 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
         if (mediaExtractor != null) {
             mediaExtractor.release();
             mediaExtractor = null;
+        }
+        if (previewAudioPlayer != null) {
+            previewAudioPlayer.releaseResource();
         }
     }
 
@@ -288,6 +297,7 @@ public class VideoEditPreView extends TextureView implements TextureView.Surface
                 Message msg = threadHandler.obtainMessage(InnerHandler.MSG_PLAY);
                 threadHandler.sendMessage(msg);
             }
+            previewAudioPlayer.play();
         }
     }
     public void pause() {

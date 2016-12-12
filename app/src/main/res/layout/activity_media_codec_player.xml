@@ -18,6 +18,7 @@
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
         android:background="#ff000000">
+
         <com.chalilayang.mediaextractordemo.ui.VideoEditPreView
             android:id="@+id/preview"
             android:layout_width="match_parent"
@@ -33,4 +34,11 @@
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"/>
+
+    <com.chalilayang.mediaextractordemo.ui.VideoEditSeekView
+        android:id="@+id/custom_seek_bar"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_below="@id/seek_bar"/>
+
 </RelativeLayout>
