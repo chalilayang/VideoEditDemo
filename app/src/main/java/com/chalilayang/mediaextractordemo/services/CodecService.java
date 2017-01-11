@@ -40,7 +40,7 @@ import java.util.List;
 /**
  * Created by chalilayang on 2016/11/29.
  */
-
+@TargetApi(18)
 public class CodecService extends Service {
 
     public static final int REQUEST_CODEC = 0x183;
@@ -135,7 +135,7 @@ public class CodecService extends Service {
         videoTimeFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         timeDataContainer = new ArrayList<>();
         paint.setColor(Color.WHITE);
-        paint.setTextSize(20);
+        paint.setTextSize(90);
     }
 
     @Override
@@ -171,6 +171,7 @@ public class CodecService extends Service {
                 if (mime.startsWith("video/")) {
                     videoTrackIndex = i;
                     this.format = format;
+                    break;
                 } else if (mime.startsWith("audio/")) {
                     continue;
                 } else {
@@ -196,9 +197,8 @@ public class CodecService extends Service {
             }
 
             mMax = (int) (videoDuration / 1000);
-            //int bit = this.format.getInteger(MediaFormat.KEY_BIT_RATE);
 
-            Log.d(TAG, "videoWidth=" + srcWidth + ",videoHeight=" + srcHeight + "," +
+            Log.i(TAG, "videoWidth=" + srcWidth + ",videoHeight=" + srcHeight + "," +
                     "videoMaxInputSize=" + videoMaxInputSize + ",videoDuration=" + videoDuration
                     + ",videoRotation=" + videoRotation);
 
@@ -207,8 +207,8 @@ public class CodecService extends Service {
             MediaCodec.BufferInfo videoInfo = new MediaCodec.BufferInfo();
             videoInfo.presentationTimeUs = 0;
 
-            initMediaDecode(mime);
-            initMediaEncode(mime);
+            initMediaDecode(format.getString(MediaFormat.KEY_MIME));
+            initMediaEncode();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -261,7 +261,7 @@ public class CodecService extends Service {
         image.recycle();
 
         Canvas canvas = new Canvas(bitmap);
-        canvas.drawText(videoTimeFormat.format(mVideo.videoCreateTime + info.presentationTimeUs /
+        canvas.drawText(videoTimeFormat.format(info.presentationTimeUs /
                 1000), 10, 30, paint);
 
         mProgress = (int) (info.presentationTimeUs / 1000);
@@ -309,19 +309,17 @@ public class CodecService extends Service {
 
     }
 
-    private void initMediaEncode(String mime) {
+    private void initMediaEncode() {
         try {
-            MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
+            MediaFormat targetFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
                     dstWidth, dstHeight);
-            format.setInteger(MediaFormat.KEY_BIT_RATE, 1024 * 512);
-            format.setInteger(MediaFormat.KEY_FRAME_RATE, 27);
-            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities
-                    .COLOR_FormatYUV420Flexible);
-            //  format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities
-            // .COLOR_FormatYUV420Planar);
-            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
             mediaEncode = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
-            mediaEncode.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            targetFormat.setInteger(MediaFormat.KEY_BIT_RATE, dstWidth * dstHeight * 8 * 3 * 4);
+            targetFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 27);
+            targetFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities
+                    .COLOR_FormatYUV420SemiPlanar);
+            targetFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+            mediaEncode.configure(targetFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -333,7 +331,7 @@ public class CodecService extends Service {
         mediaEncode.start();
     }
 
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @TargetApi(18)
     private void decode(MediaCodec.BufferInfo videoInfo, int inputIndex) {
         mediaDecode.queueInputBuffer(inputIndex, 0, videoInfo.size, videoInfo.presentationTimeUs,
                 videoInfo.flags);
@@ -430,17 +428,11 @@ public class CodecService extends Service {
             mDelete = false;
             new File(mVideo.srcPath).delete();
             Log.d(TAG, "delete file " + mVideo.srcPath);
-        } else {
-            mVideo.finish = mCancel ? 0 : 100;
-
         }
         if (mCancel) {
             mCancel = false;
             new File(mVideo.dstPath).delete();
             Log.d("px", "delete file " + mVideo.dstPath);
-        } else {
-            new File(mVideo.srcPath).delete();
-            Log.d("px", "delete file " + mVideo.srcPath);
         }
         if (mListener != null) {
             mListener.onCodecFinish(mVideo);
@@ -453,7 +445,7 @@ public class CodecService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "onStartCommand");
+        Log.i(TAG, "onStartCommand");
         super.onStartCommand(intent, flags, startId);
         if (intent == null) {
             return START_NOT_STICKY;
@@ -488,15 +480,12 @@ public class CodecService extends Service {
         }
         if (!new File(video.srcPath).exists()) {
             Toast.makeText(this, "该视频缓存文件可能已经被删除", Toast.LENGTH_SHORT).show();
-            video.finish = -100;
             return;
         }
         mVideo = video;
         if (mListener != null) {
             mListener.onCodecStart(mVideo);
         }
-        mVideo.finish = 50;
-
         Runnable runnable = new Runnable() {
             @Override
             public void run() {

@@ -188,7 +188,7 @@ public class OutputSurface implements SurfaceTexture.OnFrameAvailableListener {
                 try {
                     // Wait for onFrameAvailable() to signal us.  Use a timeout to avoid
                     // stalling the test if it doesn't arrive.
-                    mFrameSyncObject.wait(TIMEOUT_MS);
+                    mFrameSyncObject.wait();
                     if (!mFrameAvailable) {
                         // TODO: if "spurious wakeup", continue while loop
                         throw new RuntimeException("Surface frame wait timed out");
@@ -212,7 +212,7 @@ public class OutputSurface implements SurfaceTexture.OnFrameAvailableListener {
     }
     @Override
     public void onFrameAvailable(SurfaceTexture st) {
-        if (VERBOSE) Log.d(TAG, "new frame available");
+        if (VERBOSE) Log.i(TAG, "new frame available");
         synchronized (mFrameSyncObject) {
             if (mFrameAvailable) {
                 throw new RuntimeException("mFrameAvailable already set, frame could be dropped");

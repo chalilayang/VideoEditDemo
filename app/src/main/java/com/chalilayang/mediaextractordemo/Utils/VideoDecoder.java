@@ -1,5 +1,6 @@
 package com.chalilayang.mediaextractordemo.Utils;
 
+import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -16,7 +17,7 @@ import java.util.List;
 /**
  * Created by chalilayang on 2016/11/15.
  */
-
+@TargetApi(18)
 public class VideoDecoder {
     private final static String TAG = "VideoDecoder";
     private MediaCodec mediaDecoder;
@@ -136,10 +137,10 @@ public class VideoDecoder {
                                  String destFilePath,
                                  List<Segment> segments) {
         boolean result = false;
-        if (TextUtils.isEmpty(srcFilePath) || srcFilePath.toLowerCase().endsWith("mp4")) {
+        if (TextUtils.isEmpty(srcFilePath) || !srcFilePath.toLowerCase().endsWith("mp4")) {
             return false;
         }
-        if (TextUtils.isEmpty(destFilePath) || destFilePath.toLowerCase().endsWith("mp4")) {
+        if (TextUtils.isEmpty(destFilePath) || !destFilePath.toLowerCase().endsWith("mp4")) {
             return false;
         }
         if (segments == null || segments.size() <= 0) {

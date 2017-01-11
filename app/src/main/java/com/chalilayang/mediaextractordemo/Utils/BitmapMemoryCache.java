@@ -6,11 +6,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.util.LruCache;
 
-/**
- * 在Memory中缓存自定义对象，使用时必须覆写sizeOf方法
- * 可以与MyDiskLruCache配合使用，实现Memory/Disk二级缓存，实现方式参考(BitmapLruCache)
- */
-public abstract class BitmapMemoryCache {
+public class BitmapMemoryCache {
 
 	private LruCache<String, Bitmap> mMemoryCache;
 	
@@ -63,7 +59,7 @@ public abstract class BitmapMemoryCache {
      * 返回该对象的大小(字节数)，用以计算Cache中所有对象占用的空间
      * 当所占空间超过设置大小时，根据LRU算法清除部分对象
      */
-    protected abstract int sizeOf(Object obj);
-    
-    
+    protected int sizeOf(Bitmap obj) {
+		return obj != null? obj.getByteCount():1;
+	}
 }

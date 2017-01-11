@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 package com.chalilayang.mediaextractordemo.Utils;
+
 import android.annotation.TargetApi;
+import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -22,13 +24,13 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.os.Environment;
+import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
-
 /**
  * Test for the integration of MediaMuxer and MediaCodec's encoder.
  *
@@ -43,9 +45,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * MediaMuxer.
  */
 @TargetApi(18)
-public class ExtractDecodeEditEncodeMuxTest {
+public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
     private static final String TAG = ExtractDecodeEditEncodeMuxTest.class.getSimpleName();
-    private static final boolean VERBOSE = false; // lots of logging
+    private static final boolean VERBOSE = true; // lots of logging
     /** How long to wait for the next buffer to become available. */
     private static final int TIMEOUT_USEC = 10000;
     /** Where to output the test files. */
@@ -86,7 +88,7 @@ public class ExtractDecodeEditEncodeMuxTest {
     /** Height of the output frames. */
     private int mHeight = -1;
     /** The raw resource used as the input file. */
-    private int mSourceResId;
+    private String mSourceResId;
     /** The destination file for the encoded output. */
     private String mOutputFile;
 //    public void testExtractDecodeEditEncodeMuxQCIF() throws Throwable {
@@ -113,13 +115,13 @@ public class ExtractDecodeEditEncodeMuxTest {
 //        setCopyAudio();
 //        TestWrapper.runTest(this);
 //    }
-//    public void testExtractDecodeEditEncodeMuxAudioVideo() throws Throwable {
-//        setSize(1280, 720);
-//        setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
-//        setCopyAudio();
-//        setCopyVideo();
-//        TestWrapper.runTest(this);
-//    }
+    public void testExtractDecodeEditEncodeMuxAudioVideo(String ddd) throws Throwable {
+        setSize(1280, 720);
+        setSource(ddd);
+        setCopyAudio();
+        setCopyVideo();
+        TestWrapper.runTest(this);
+    }
     /** Wraps testExtractDecodeEditEncodeMux() */
     private static class TestWrapper implements Runnable {
         private Throwable mThrowable;
@@ -174,22 +176,21 @@ public class ExtractDecodeEditEncodeMuxTest {
     /**
      * Sets the raw resource used as the source video.
      */
-    private void setSource(int resId) {
+    private void setSource(String resId) {
         mSourceResId = resId;
     }
-    /**
-     * Sets the name of the output file based on the other parameters.
-     *
-     * <p>Must be called after {@link #setSize(int, int)} and {@link #setSource(int)}.
-     */
+
     private void setOutputFile() {
         StringBuilder sb = new StringBuilder();
         sb.append(OUTPUT_FILENAME_DIR.getAbsolutePath());
         sb.append("/cts-media-");
         sb.append(getClass().getSimpleName());
+//        assertTrue("should have called setSource() first", mSourceResId != -1);
         sb.append('-');
-        sb.append(mSourceResId);
+        sb.append("edit");
         if (mCopyVideo) {
+            assertTrue("should have called setSize() first", mWidth != -1);
+            assertTrue("should have called setSize() first", mHeight != -1);
             sb.append('-');
             sb.append("video");
             sb.append('-');
@@ -238,8 +239,9 @@ public class ExtractDecodeEditEncodeMuxTest {
         InputSurface inputSurface = null;
         try {
             if (mCopyVideo) {
-//                videoExtractor = createExtractor();
+                videoExtractor = createExtractor();
                 int videoInputTrack = getAndSelectVideoTrackIndex(videoExtractor);
+                assertTrue("missing video track in test video", videoInputTrack != -1);
                 MediaFormat inputFormat = videoExtractor.getTrackFormat(videoInputTrack);
                 // We avoid the device-specific limitations on width and height by using values
                 // that are multiples of 16, which all tested devices seem to be able to handle.
@@ -267,8 +269,9 @@ public class ExtractDecodeEditEncodeMuxTest {
                 videoDecoder = createVideoDecoder(inputFormat, outputSurface.getSurface());
             }
             if (mCopyAudio) {
-//                audioExtractor = createExtractor();
+                audioExtractor = createExtractor();
                 int audioInputTrack = getAndSelectAudioTrackIndex(audioExtractor);
+                assertTrue("missing audio track in test video", audioInputTrack != -1);
                 MediaFormat inputFormat = audioExtractor.getTrackFormat(audioInputTrack);
                 MediaFormat outputAudioFormat =
                         MediaFormat.createAudioFormat(
@@ -295,7 +298,7 @@ public class ExtractDecodeEditEncodeMuxTest {
                     inputSurface,
                     outputSurface);
         } finally {
-            if (VERBOSE) Log.d(TAG, "releasing extractor, decoder, encoder, and muxer");
+            if (VERBOSE) Log.i(TAG, "releasing extractor, decoder, encoder, and muxer");
             // Try to release everything we acquired, even if one of the releases fails, in which
             // case we save the first exception we got and re-throw at the end (unless something
             // other exception has already been thrown). This guarantees the first exception thrown
@@ -404,10 +407,10 @@ public class ExtractDecodeEditEncodeMuxTest {
     /**
      * Creates an extractor that reads its frames from {@link #mSourceResId}.
      */
-    private MediaExtractor createExtractor(String filePath) throws IOException {
+    private MediaExtractor createExtractor() throws IOException {
         MediaExtractor extractor;
         extractor = new MediaExtractor();
-        extractor.setDataSource(filePath);
+        extractor.setDataSource(mSourceResId);
         return extractor;
     }
     /**
@@ -420,11 +423,11 @@ public class ExtractDecodeEditEncodeMuxTest {
         MediaCodec decoder = null;
         try {
             decoder = MediaCodec.createDecoderByType(getMimeTypeFor(inputFormat));
-            decoder.configure(inputFormat, surface, null, 0);
-            decoder.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        decoder.configure(inputFormat, surface, null, 0);
+        decoder.start();
         return decoder;
     }
     /**
@@ -444,13 +447,13 @@ public class ExtractDecodeEditEncodeMuxTest {
         MediaCodec encoder = null;
         try {
             encoder = MediaCodec.createByCodecName(codecInfo.getName());
-            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            // Must be called before start() is.
-            surfaceReference.set(encoder.createInputSurface());
-            encoder.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        // Must be called before start() is.
+        surfaceReference.set(encoder.createInputSurface());
+        encoder.start();
         return encoder;
     }
     /**
@@ -462,11 +465,11 @@ public class ExtractDecodeEditEncodeMuxTest {
         MediaCodec decoder = null;
         try {
             decoder = MediaCodec.createDecoderByType(getMimeTypeFor(inputFormat));
-            decoder.configure(inputFormat, null, null, 0);
-            decoder.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        decoder.configure(inputFormat, null, null, 0);
+        decoder.start();
         return decoder;
     }
     /**
@@ -479,11 +482,11 @@ public class ExtractDecodeEditEncodeMuxTest {
         MediaCodec encoder = null;
         try {
             encoder = MediaCodec.createByCodecName(codecInfo.getName());
-            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            encoder.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        encoder.start();
         return encoder;
     }
     /**
@@ -587,7 +590,7 @@ public class ExtractDecodeEditEncodeMuxTest {
         int audioEncodedFrameCount = 0;
         while ((mCopyVideo && !videoEncoderDone) || (mCopyAudio && !audioEncoderDone)) {
             if (VERBOSE) {
-                Log.d(TAG, String.format(
+                Log.i(TAG, String.format(
                         "loop: "
                                 + "V(%b){"
                                 + "extracted:%d(done:%b) "
@@ -617,18 +620,18 @@ public class ExtractDecodeEditEncodeMuxTest {
                     && (encoderOutputVideoFormat == null || muxing)) {
                 int decoderInputBufferIndex = videoDecoder.dequeueInputBuffer(TIMEOUT_USEC);
                 if (decoderInputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                    if (VERBOSE) Log.d(TAG, "no video decoder input buffer");
+                    if (VERBOSE) Log.i(TAG, "no video decoder input buffer");
                     break;
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "video decoder: returned input buffer: " + decoderInputBufferIndex);
+                    Log.i(TAG, "video decoder: returned input buffer: " + decoderInputBufferIndex);
                 }
                 ByteBuffer decoderInputBuffer = videoDecoderInputBuffers[decoderInputBufferIndex];
                 int size = videoExtractor.readSampleData(decoderInputBuffer, 0);
                 long presentationTime = videoExtractor.getSampleTime();
                 if (VERBOSE) {
-                    Log.d(TAG, "video extractor: returned buffer of size " + size);
-                    Log.d(TAG, "video extractor: returned buffer for time " + presentationTime);
+                    Log.i(TAG, "video extractor: returned buffer of size " + size);
+                    Log.i(TAG, "video extractor: returned buffer for time " + presentationTime);
                 }
                 if (size >= 0) {
                     videoDecoder.queueInputBuffer(
@@ -659,18 +662,18 @@ public class ExtractDecodeEditEncodeMuxTest {
                     && (encoderOutputAudioFormat == null || muxing)) {
                 int decoderInputBufferIndex = audioDecoder.dequeueInputBuffer(TIMEOUT_USEC);
                 if (decoderInputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                    if (VERBOSE) Log.d(TAG, "no audio decoder input buffer");
+                    if (VERBOSE) Log.i(TAG, "no audio decoder input buffer");
                     break;
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "audio decoder: returned input buffer: " + decoderInputBufferIndex);
+                    Log.i(TAG, "audio decoder: returned input buffer: " + decoderInputBufferIndex);
                 }
                 ByteBuffer decoderInputBuffer = audioDecoderInputBuffers[decoderInputBufferIndex];
                 int size = audioExtractor.readSampleData(decoderInputBuffer, 0);
                 long presentationTime = audioExtractor.getSampleTime();
                 if (VERBOSE) {
-                    Log.d(TAG, "audio extractor: returned buffer of size " + size);
-                    Log.d(TAG, "audio extractor: returned buffer for time " + presentationTime);
+                    Log.i(TAG, "audio extractor: returned buffer of size " + size);
+                    Log.i(TAG, "audio extractor: returned buffer for time " + presentationTime);
                 }
                 if (size >= 0) {
                     audioDecoder.queueInputBuffer(
@@ -718,40 +721,40 @@ public class ExtractDecodeEditEncodeMuxTest {
                     break;
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "video decoder: returned output buffer: "
+                    Log.i(TAG, "video decoder: returned output buffer: "
                             + decoderOutputBufferIndex);
-                    Log.d(TAG, "video decoder: returned buffer of size "
+                    Log.i(TAG, "video decoder: returned buffer of size "
                             + videoDecoderOutputBufferInfo.size);
                 }
                 ByteBuffer decoderOutputBuffer =
                         videoDecoderOutputBuffers[decoderOutputBufferIndex];
                 if ((videoDecoderOutputBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG)
                         != 0) {
-                    if (VERBOSE) Log.d(TAG, "video decoder: codec config buffer");
+                    if (VERBOSE) Log.i(TAG, "video decoder: codec config buffer");
                     videoDecoder.releaseOutputBuffer(decoderOutputBufferIndex, false);
                     break;
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "video decoder: returned buffer for time "
+                    Log.i(TAG, "video decoder: returned buffer for time "
                             + videoDecoderOutputBufferInfo.presentationTimeUs);
                 }
                 boolean render = videoDecoderOutputBufferInfo.size != 0;
                 videoDecoder.releaseOutputBuffer(decoderOutputBufferIndex, render);
                 if (render) {
-                    if (VERBOSE) Log.d(TAG, "output surface: await new image");
+                    if (VERBOSE) Log.i(TAG, "output surface: await new image");
                     outputSurface.awaitNewImage();
                     // Edit the frame and send it to the encoder.
-                    if (VERBOSE) Log.d(TAG, "output surface: draw image");
+                    if (VERBOSE) Log.i(TAG, "output surface: draw image");
                     outputSurface.drawImage();
                     inputSurface.setPresentationTime(
                             videoDecoderOutputBufferInfo.presentationTimeUs * 1000);
-                    if (VERBOSE) Log.d(TAG, "input surface: swap buffers");
+                    if (VERBOSE) Log.i(TAG, "input surface: swap buffers");
                     inputSurface.swapBuffers();
-                    if (VERBOSE) Log.d(TAG, "video encoder: notified of new frame");
+                    if (VERBOSE) Log.i(TAG, "video encoder: notified of new frame");
                 }
                 if ((videoDecoderOutputBufferInfo.flags
                         & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    if (VERBOSE) Log.d(TAG, "video decoder: EOS");
+                    if (VERBOSE) Log.i(TAG, "video decoder: EOS");
                     videoDecoderDone = true;
                     videoEncoder.signalEndOfInputStream();
                 }
@@ -767,11 +770,11 @@ public class ExtractDecodeEditEncodeMuxTest {
                         audioDecoder.dequeueOutputBuffer(
                                 audioDecoderOutputBufferInfo, TIMEOUT_USEC);
                 if (decoderOutputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                    if (VERBOSE) Log.d(TAG, "no audio decoder output buffer");
+                    if (VERBOSE) Log.i(TAG, "no audio decoder output buffer");
                     break;
                 }
                 if (decoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                    if (VERBOSE) Log.d(TAG, "audio decoder: output buffers changed");
+                    if (VERBOSE) Log.i(TAG, "audio decoder: output buffers changed");
                     audioDecoderOutputBuffers = audioDecoder.getOutputBuffers();
                     break;
                 }
@@ -784,27 +787,27 @@ public class ExtractDecodeEditEncodeMuxTest {
                     break;
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "audio decoder: returned output buffer: "
+                    Log.i(TAG, "audio decoder: returned output buffer: "
                             + decoderOutputBufferIndex);
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "audio decoder: returned buffer of size "
+                    Log.i(TAG, "audio decoder: returned buffer of size "
                             + audioDecoderOutputBufferInfo.size);
                 }
                 ByteBuffer decoderOutputBuffer =
                         audioDecoderOutputBuffers[decoderOutputBufferIndex];
                 if ((audioDecoderOutputBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG)
                         != 0) {
-                    if (VERBOSE) Log.d(TAG, "audio decoder: codec config buffer");
+                    if (VERBOSE) Log.i(TAG, "audio decoder: codec config buffer");
                     audioDecoder.releaseOutputBuffer(decoderOutputBufferIndex, false);
                     break;
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "audio decoder: returned buffer for time "
+                    Log.i(TAG, "audio decoder: returned buffer for time "
                             + audioDecoderOutputBufferInfo.presentationTimeUs);
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "audio decoder: output buffer is now pending: "
+                    Log.i(TAG, "audio decoder: output buffer is now pending: "
                             + pendingAudioDecoderOutputBufferIndex);
                 }
                 pendingAudioDecoderOutputBufferIndex = decoderOutputBufferIndex;
@@ -830,12 +833,12 @@ public class ExtractDecodeEditEncodeMuxTest {
                 int size = audioDecoderOutputBufferInfo.size;
                 long presentationTime = audioDecoderOutputBufferInfo.presentationTimeUs;
                 if (VERBOSE) {
-                    Log.d(TAG, "audio decoder: processing pending buffer: "
+                    Log.i(TAG, "audio decoder: processing pending buffer: "
                             + pendingAudioDecoderOutputBufferIndex);
                 }
                 if (VERBOSE) {
-                    Log.d(TAG, "audio decoder: pending buffer of size " + size);
-                    Log.d(TAG, "audio decoder: pending buffer for time " + presentationTime);
+                    Log.i(TAG, "audio decoder: pending buffer of size " + size);
+                    Log.i(TAG, "audio decoder: pending buffer for time " + presentationTime);
                 }
                 if (size >= 0) {
                     ByteBuffer decoderOutputBuffer =
@@ -856,7 +859,7 @@ public class ExtractDecodeEditEncodeMuxTest {
                 pendingAudioDecoderOutputBufferIndex = -1;
                 if ((audioDecoderOutputBufferInfo.flags
                         & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    if (VERBOSE) Log.d(TAG, "audio decoder: EOS");
+                    if (VERBOSE) Log.i(TAG, "audio decoder: EOS");
                     audioDecoderDone = true;
                 }
                 // We enqueued a pending frame, let's try something else next.
@@ -868,26 +871,27 @@ public class ExtractDecodeEditEncodeMuxTest {
                 int encoderOutputBufferIndex = videoEncoder.dequeueOutputBuffer(
                         videoEncoderOutputBufferInfo, TIMEOUT_USEC);
                 if (encoderOutputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                    if (VERBOSE) Log.d(TAG, "no video encoder output buffer");
+                    if (VERBOSE) Log.i(TAG, "no video encoder output buffer");
                     break;
                 }
                 if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                    if (VERBOSE) Log.d(TAG, "video encoder: output buffers changed");
+                    if (VERBOSE) Log.i(TAG, "video encoder: output buffers changed");
                     videoEncoderOutputBuffers = videoEncoder.getOutputBuffers();
                     break;
                 }
                 if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    if (VERBOSE) Log.d(TAG, "video encoder: output format changed");
-//                    if (outputVideoTrack >= 0) {
-//                        fail("video encoder changed its output format again?");
-//                    }
+                    if (VERBOSE) Log.i(TAG, "video encoder: output format changed");
+                    if (outputVideoTrack >= 0) {
+                        fail("video encoder changed its output format again?");
+                    }
                     encoderOutputVideoFormat = videoEncoder.getOutputFormat();
                     break;
                 }
+                assertTrue("should have added track before processing output", muxing);
                 if (VERBOSE) {
-                    Log.d(TAG, "video encoder: returned output buffer: "
+                    Log.i(TAG, "video encoder: returned output buffer: "
                             + encoderOutputBufferIndex);
-                    Log.d(TAG, "video encoder: returned buffer of size "
+                    Log.i(TAG, "video encoder: returned buffer of size "
                             + videoEncoderOutputBufferInfo.size);
                 }
                 ByteBuffer encoderOutputBuffer =
@@ -933,12 +937,13 @@ public class ExtractDecodeEditEncodeMuxTest {
                 }
                 if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     if (VERBOSE) Log.d(TAG, "audio encoder: output format changed");
-//                    if (outputAudioTrack >= 0) {
-//                        fail("audio encoder changed its output format again?");
-//                    }
+                    if (outputAudioTrack >= 0) {
+                        fail("audio encoder changed its output format again?");
+                    }
                     encoderOutputAudioFormat = audioEncoder.getOutputFormat();
                     break;
                 }
+                assertTrue("should have added track before processing output", muxing);
                 if (VERBOSE) {
                     Log.d(TAG, "audio encoder: returned output buffer: "
                             + encoderOutputBufferIndex);
@@ -976,11 +981,11 @@ public class ExtractDecodeEditEncodeMuxTest {
                     && (!mCopyAudio || encoderOutputAudioFormat != null)
                     && (!mCopyVideo || encoderOutputVideoFormat != null)) {
                 if (mCopyVideo) {
-                    Log.d(TAG, "muxer: adding video track.");
+                    Log.i(TAG, "muxer: adding video track.");
                     outputVideoTrack = muxer.addTrack(encoderOutputVideoFormat);
                 }
                 if (mCopyAudio) {
-                    Log.d(TAG, "muxer: adding audio track.");
+                    Log.i(TAG, "muxer: adding audio track.");
                     outputAudioTrack = muxer.addTrack(encoderOutputAudioFormat);
                 }
                 Log.d(TAG, "muxer: starting");
@@ -988,6 +993,17 @@ public class ExtractDecodeEditEncodeMuxTest {
                 muxing = true;
             }
         }
+        // Basic sanity checks.
+        if (mCopyVideo) {
+            assertEquals("encoded and decoded video frame counts should match",
+                    videoDecodedFrameCount, videoEncodedFrameCount);
+            assertTrue("decoded frame count should be less than extracted frame count",
+                    videoDecodedFrameCount <= videoExtractedFrameCount);
+        }
+        if (mCopyAudio) {
+            assertEquals("no frame should be pending", -1, pendingAudioDecoderOutputBufferIndex);
+        }
+        // TODO: Check the generated output file.
     }
     private static boolean isVideoFormat(MediaFormat format) {
         return getMimeTypeFor(format).startsWith("video/");
@@ -999,7 +1015,7 @@ public class ExtractDecodeEditEncodeMuxTest {
         return format.getString(MediaFormat.KEY_MIME);
     }
     /**
-     * Returns the first codec capable of encoding the specified MIME type, or       * null if no match was
+     * Returns the first codec capable of encoding the specified MIME type, or null if no match was
      * found.
      */
     private static MediaCodecInfo selectCodec(String mimeType) {

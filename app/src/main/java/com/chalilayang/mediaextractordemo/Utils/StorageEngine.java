@@ -89,15 +89,10 @@ public class StorageEngine {
     public static synchronized File getDownloadFile(Context context, String filename) {
         File file = null;
         if (!TextUtils.isEmpty(filename)) {
-            if (SDCardUtil.checkDownloadAvailable(context)) {
-                File fileFolder = getDownloadFolder(context);
-                if (fileFolder != null) {
-                    file = new File(fileFolder, filename);
-                }
-            } else {
-                Log.d(TAG, "StorageEngine.getDownloadFile()  sdcard doesnot exist");
+            File fileFolder = getDownloadFolder(context);
+            if (fileFolder != null) {
+                file = new File(fileFolder, filename);
             }
-
         } else {
             Log.d(TAG, "StorageEngine.getDownloadFile()  forderName or fileName is empty!");
         }
@@ -111,14 +106,10 @@ public class StorageEngine {
      */
     public static File getDownloadFolder(Context context) {
         File result = null;
-        if (SDCardUtil.checkDownloadAvailable(context)) {
-            File file1 = new File(getDownloadRootPath(context));
-            result = new File(file1, SAVED_DIR_NAME);
-            if (!result.exists()) {
-                result.mkdirs();
-            }
-        } else {
-            Log.d(TAG, "StorageEngine.getDownloadFile()  sdcard doesnot exist");
+        File file1 = new File(getDownloadRootPath(context));
+        result = file1;
+        if (!result.exists()) {
+            result.mkdirs();
         }
         return result;
     }
@@ -161,7 +152,7 @@ public class StorageEngine {
                 return null;
             }
         } else {
-            return Environment.getExternalStorageDirectory().getAbsolutePath();
+            return Environment.getExternalStorageDirectory().getAbsolutePath() + "/DCIM/Camera";
         }
     }
 

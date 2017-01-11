@@ -207,18 +207,18 @@ public class SDCardUtil {
         return false;
     }
     
-    /**
-     * 检测存储目录是否挂载
-     * @return
-     */
-    public static boolean checkDownloadAvailable(Context context) {
-        boolean result = false;
-        String file = StorageEngine.getDownloadRootPath(context);
-        if (file != null) {
-            result = checkSDCardMount(context, file);
-        }
-        return result;
-    }
+//    /**
+//     * 检测存储目录是否挂载
+//     * @return
+//     */
+//    public static boolean checkDownloadAvailable(Context context) {
+//        boolean result = false;
+//        String file = StorageEngine.getDownloadRootPath(context);
+//        if (file != null) {
+//            result = checkSDCardMount(context, file);
+//        }
+//        return result;
+//    }
     
     /**
      * 检测存储目录空间是否满

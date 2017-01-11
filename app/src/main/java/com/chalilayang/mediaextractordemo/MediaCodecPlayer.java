@@ -8,6 +8,9 @@ import android.provider.MediaStore;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.StaggeredGridLayoutManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
@@ -15,7 +18,10 @@ import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
+import com.chalilayang.mediaextractordemo.Adapters.SegmentRecycleAdapter;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
+import com.chalilayang.mediaextractordemo.entities.VideoEditRepository;
+import com.chalilayang.mediaextractordemo.entities.VideoSegment;
 import com.chalilayang.mediaextractordemo.ui.VideoEditPreView;
 
 import java.io.File;
@@ -32,7 +38,10 @@ public class MediaCodecPlayer extends AppCompatActivity
     private int screenHeightPx;
     private VideoData videoToPlay;
     private View preViewContainer;
+    private RecyclerView recyclerView;
+    private SegmentRecycleAdapter segmentRecycleAdapter;
 
+    private VideoEditRepository repository;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "onCreate: ");
@@ -74,6 +83,12 @@ public class MediaCodecPlayer extends AppCompatActivity
             videoToPlay = new VideoData(path, name);
         }
         videoEditPreView.setVideoPath(videoToPlay.filePath);
+        repository = VideoEditRepository.getInstance();
+        repository.addSegment(new VideoSegment(videoToPlay, 0, 2));
+        repository.addSegment(new VideoSegment(videoToPlay, 0, 2));
+        repository.addSegment(new VideoSegment(videoToPlay, 0, 2));
+
+        segmentRecycleAdapter.loadVideoSegments(repository.getSegmentList());
     }
 
     private void initMetrics() {
@@ -93,7 +108,7 @@ public class MediaCodecPlayer extends AppCompatActivity
         preViewContainer = findViewById(R.id.preview_container);
         videoEditPreView = (VideoEditPreView) findViewById(R.id.preview);
         videoEditPreView.setOnPlayBackPositionListener(this);
-        preViewContainer.getLayoutParams().height = screenHeightPx / 2;
+        preViewContainer.getLayoutParams().height = screenHeightPx / 3;
         preViewContainer.getLayoutParams().width = screenWidthPx;
         preViewContainer.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -109,7 +124,31 @@ public class MediaCodecPlayer extends AppCompatActivity
         seekBar = (SeekBar) findViewById(R.id.seek_bar);
         seekBar.setOnSeekBarChangeListener(this);
         seekBar.setMax(VideoEditPreView.MAX);
-        ((RelativeLayout.LayoutParams) seekBar.getLayoutParams()).topMargin = screenHeightPx / 2;
+        ((RelativeLayout.LayoutParams) seekBar.getLayoutParams()).topMargin = screenHeightPx / 3;
+
+        recyclerView = (RecyclerView) findViewById(R.id.recycle_view);
+        RecyclerView.LayoutManager layoutManager = new StaggeredGridLayoutManager(1,
+                StaggeredGridLayoutManager.HORIZONTAL);
+        recyclerView.setLayoutManager(layoutManager);
+
+        int itemWidth = (int)(screenWidthPx * 0.2);
+        segmentRecycleAdapter = new SegmentRecycleAdapter(getApplicationContext(), itemWidth);
+        recyclerView.setAdapter(segmentRecycleAdapter);
+        segmentRecycleAdapter.setOnItemClickListener(new SegmentRecycleAdapter.onItemClickListener() {
+
+
+            @Override
+            public void onItemClick(View view, int position) {
+                Toast.makeText(getApplicationContext(),
+                        "onItemClick " + position, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onItemDelete(View view, int position) {
+                Toast.makeText(getApplicationContext(),
+                        "onItemDelete " + position, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     @Override

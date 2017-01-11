@@ -24,16 +24,7 @@ public class VideoThumbnailLoader {
 
     private VideoThumbnailLoader(Context context) {
         this.context = context;
-        mMCache = new BitmapMemoryCache(context, DEFAULT_DISK_CACHE_SIZE) {
-            @Override
-            protected int sizeOf(Object obj) {
-                if (obj instanceof Bitmap) {
-                    Bitmap bp = (Bitmap) obj;
-                    return bp.getByteCount();
-                }
-                return 0;
-            }
-        };
+        mMCache = new BitmapMemoryCache(context, DEFAULT_DISK_CACHE_SIZE);
     }
 
     public synchronized void notifyBitmap(String filepath) {

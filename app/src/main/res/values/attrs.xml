@@ -9,4 +9,12 @@
         <attr name="metaButtonBarButtonStyle" format="reference"/>
     </declare-styleable>
 
+    <declare-styleable name="CustomSeekBar">
+        <attr name="csb_barHeight" format="dimension"/>
+        <attr name="csb_barColor" format="color"/>
+        <attr name="csb_barShadowColor" format="color"/>
+        <attr name="csb_circleRadius" format="dimension"/>
+        <attr name="csb_circleColor" format="color"/>
+    </declare-styleable>
+
 </resources>

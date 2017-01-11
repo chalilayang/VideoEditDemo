@@ -8,8 +8,8 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
-import com.ptteng.bf8.R;
-import com.ptteng.bf8.videoedit.entities.VideoSegment;
+import com.chalilayang.mediaextractordemo.R;
+import com.chalilayang.mediaextractordemo.entities.VideoSegment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +37,7 @@ public class SegmentRecycleAdapter extends RecyclerView.Adapter {
     }
     public void addVideoSegments(List<VideoSegment> list) {
         this.segmentList.addAll(list);
+        this.notifyDataSetChanged();
     }
     public void setOnItemClickListener(onItemClickListener lis) {
         if (lis != null) {
@@ -55,7 +56,7 @@ public class SegmentRecycleAdapter extends RecyclerView.Adapter {
         int imageHeight = (int)(itemWidth * rate);
         RelativeLayout.LayoutParams rlp = (RelativeLayout.LayoutParams)
                 view.findViewById(R.id.segment_item_image).getLayoutParams();
-        rlp.height = rlp.width = (int)(this.itemWidth * 0.9);
+        rlp.height = rlp.width = (int)(this.itemWidth * 0.85);
         rlp = (RelativeLayout.LayoutParams)
                 view.findViewById(R.id.segment_delete_icon).getLayoutParams();
         rlp.height = rlp.width = (int)(this.itemWidth * 0.2);
@@ -80,25 +81,33 @@ public class SegmentRecycleAdapter extends RecyclerView.Adapter {
             implements View.OnClickListener {
 
         public ImageView mImageView;
+        public ImageView mDeleteView;
         public View mRoot;
         public int mPosition;
 
         public SegmentViewHolder(View itemView) {
             super(itemView);
             mImageView = (ImageView) itemView.findViewById(R.id.segment_item_image);
+            mDeleteView = (ImageView) itemView.findViewById(R.id.segment_delete_icon);
             mRoot = itemView.findViewById(R.id.segment_item_root);
-            mRoot.setOnClickListener(this);
+            mImageView.setOnClickListener(this);
+            mDeleteView.setOnClickListener(this);
         }
 
         @Override
         public void onClick(View v) {
             if (SegmentRecycleAdapter.this.listener != null) {
-                SegmentRecycleAdapter.this.listener.onItemClick(v, mPosition);
+                if (v.getId() == R.id.segment_item_image) {
+                    SegmentRecycleAdapter.this.listener.onItemClick(v, mPosition);
+                } else if (v.getId() == R.id.segment_delete_icon) {
+                    SegmentRecycleAdapter.this.listener.onItemDelete(v, mPosition);
+                }
             }
         }
     }
 
     public interface onItemClickListener {
         void onItemClick(View view, int position);
+        void onItemDelete(View view, int position);
     }
 }

@@ -27,4 +27,16 @@ public class FileUtils {
             return path.substring(index + 1);
         }
     }
+
+    public static String parseFilePath(String path) {
+        if (TextUtils.isEmpty(path)) {
+            return "";
+        }
+        int index = path.lastIndexOf(File.separatorChar);
+        if (index < 0 && index < path.length()-1) {
+            return path;
+        } else {
+            return path.substring(0, index);
+        }
+    }
 }

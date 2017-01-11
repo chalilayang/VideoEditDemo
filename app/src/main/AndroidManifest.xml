@@ -77,8 +77,7 @@
         <service
             android:name=".services.CodecService"
             android:enabled="true"
-            android:exported="false"
-            android:process=":remote">
+            android:exported="false">
         </service>
         <service
             android:name=".services.BinderPoolService"

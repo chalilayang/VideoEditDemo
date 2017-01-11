@@ -1,5 +1,6 @@
 package com.chalilayang.mediaextractordemo.Utils;
 
+import android.annotation.TargetApi;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.media.MediaCodec;
@@ -51,6 +52,7 @@ import java.nio.FloatBuffer;
  * (This was derived from bits and pieces of CTS tests, and is packaged as such, but is not
  * currently part of CTS.)
  */
+@TargetApi(18)
 public class CameraToMpegTest extends AndroidTestCase {
     private static final String TAG = "CameraToMpegTest";
     private static final boolean VERBOSE = false;           // lots of logging

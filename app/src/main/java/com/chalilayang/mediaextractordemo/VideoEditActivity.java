@@ -26,16 +26,22 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.chalilayang.mediaextractordemo.Utils.AvcEncoder;
+import com.chalilayang.mediaextractordemo.Utils.CameraToMpegTest;
+import com.chalilayang.mediaextractordemo.Utils.ExtractDecodeEditEncodeMuxTest;
 import com.chalilayang.mediaextractordemo.Utils.FileUtils;
 import com.chalilayang.mediaextractordemo.Utils.SDCardUtil;
 import com.chalilayang.mediaextractordemo.Utils.StorageEngine;
 import com.chalilayang.mediaextractordemo.Utils.TimeUtil;
+import com.chalilayang.mediaextractordemo.Utils.VideoDecoder;
 import com.chalilayang.mediaextractordemo.Utils.VideoUtils;
 import com.chalilayang.mediaextractordemo.aidl.BinderPool;
 import com.chalilayang.mediaextractordemo.aidl.BinderPoolImpl;
 import com.chalilayang.mediaextractordemo.aidl.VideoEditManagerImpl;
 import com.chalilayang.mediaextractordemo.entities.SrtEntity;
+import com.chalilayang.mediaextractordemo.entities.VideoCodecModel;
 import com.chalilayang.mediaextractordemo.entities.VideoData;
+import com.chalilayang.mediaextractordemo.services.CodecService;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -259,7 +265,27 @@ public class VideoEditActivity extends AppCompatActivity {
             String dest = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
                     + File.separatorChar
                     + "mergedVideo.mp4";
-            VideoUtils.mergeVideos(videos, dest);
+
+            String tmp1 = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
+                    + File.separatorChar
+                    + "tmp1.mp4";
+
+            String tmp2 = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
+                    + File.separatorChar
+                    + "tmp2.mp4";
+            VideoDecoder.Segment ss = new VideoDecoder.Segment(0, 8000000);
+            VideoDecoder.Segment ss1 = new VideoDecoder.Segment(4000000, 12000000);
+//            List<VideoDecoder.Segment> list = new ArrayList<>();
+//            list.add(ss);
+//            list.add(ss1);
+//            VideoDecoder decoder = new VideoDecoder();
+//            decoder.mergeSegments(path, dest, list);
+            VideoUtils.cropVideo(path, tmp1, 0, 8000000, VideoUtils.METHOD_BY_MEDIA);
+            VideoUtils.cropVideo(path, tmp2, 4000000, 12000000, VideoUtils.METHOD_BY_MEDIA);
+            List<String> paths = new ArrayList<>();
+            paths.add(tmp1);
+            paths.add(tmp2);
+            VideoUtils.mergeVideos(paths, dest);
             return null;
         }
 
@@ -292,15 +318,15 @@ public class VideoEditActivity extends AppCompatActivity {
         setContentView(R.layout.activity_video_edit);
         initData();
         initView();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                mBinderPool = BinderPool.getInstance(getApplicationContext());
-                IBinder binder = mBinderPool.queryBinder(BinderPoolImpl.BINDER_ID_VIDEO_EDIT);
-                iVideoEditManager = VideoEditManagerImpl.asInterface(binder);
-                handler.obtainMessage(MSG_BINDER_READY).sendToTarget();
-            }
-        }).start();
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                mBinderPool = BinderPool.getInstance(getApplicationContext());
+//                IBinder binder = mBinderPool.queryBinder(BinderPoolImpl.BINDER_ID_VIDEO_EDIT);
+//                iVideoEditManager = VideoEditManagerImpl.asInterface(binder);
+//                handler.obtainMessage(MSG_BINDER_READY).sendToTarget();
+//            }
+//        }).start();
     }
 
     @Override
@@ -372,7 +398,8 @@ public class VideoEditActivity extends AppCompatActivity {
         mergeBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                doMerge();
+//                doMerge();
+                doEdit();
             }
         });
     }
@@ -431,6 +458,29 @@ public class VideoEditActivity extends AppCompatActivity {
     }
     private void doMerge() {
         mergeVideosTask.execute();
+    }
+    private void doEdit() {
+        String path = videoToEdit.filePath;
+        String appendVideo = StorageEngine.getDownloadFolder(getApplicationContext()).getAbsolutePath()
+                + File.separatorChar
+                + "editVideo.mp4";
+        File ff = new File(appendVideo);
+        if (ff.exists()) {
+            ff.delete();
+        }
+        ExtractDecodeEditEncodeMuxTest test = new ExtractDecodeEditEncodeMuxTest();
+        try {
+            test.testExtractDecodeEditEncodeMuxAudioVideo(path);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+//        AvcEncoder avcEncoder = new AvcEncoder();
+//        avcEncoder.start(new VideoCodecModel(path, appendVideo));
+//        VideoCodecModel video = new VideoCodecModel(path, appendVideo);
+//        Intent intent = new Intent(this, CodecService.class);
+//        intent.putExtra("action", CodecService.REQUEST_CODEC);
+//        intent.putExtra("video", video);
+//        startService(intent);
     }
 
     private boolean checkInput(long head, long tail, long duration) {
